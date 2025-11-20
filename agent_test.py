@@ -41,7 +41,8 @@ llm = ChatOpenAI(model="gpt-5")
 
 
 
-def get_ai_response(messages: List[BaseMessage]) -> Iterator[str]:
+# def get_ai_response(messages: List[BaseMessage]) -> Iterator[str]:
+def get_ai_response(messages):
      """ LangChain ChatOpenAI의 .stream이 산출하는 chunk에서 content만 추출해 yield. 
           Streamlit의 write_stream에 넘길 수 있는 문자열 이터레이터를 반환. """ 
      for chunk in llm.stream(messages):
@@ -129,6 +130,7 @@ if prompt := st.chat_input():
 # 최종 응답 저장
 if final_text:
     st.session_state["messages"].append(AIMessage(content=final_text))   
+
 
 
 
