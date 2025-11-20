@@ -68,7 +68,7 @@ def get_ai_response(messages):
     response = llm.stream(messages) # ① llm.stream()을 llm_with_tools.stream()로 변경
     
     gathered = None # ②
-    for chunk in response:
+    for chunk in response.content:
         yield chunk
         
 
@@ -131,6 +131,7 @@ if prompt := st.chat_input():
     
     result = st.chat_message("assistant").write_stream(response) # AI 메시지 출력
     st.session_state["messages"].append(AIMessage(result)) # AI 메시지 저장    
+
 
 
 
