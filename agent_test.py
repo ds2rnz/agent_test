@@ -20,7 +20,7 @@ import ast
 # from langchain.chains import RetrievalQA
 from langchain_openai import OpenAIEmbeddings
 # from langchain_chroma import Chroma
-from langchain.agents import PromptTemplate
+# from langchain.agents import PromptTemplate
 from langchain_community.vectorstores import FAISS
 from openai import OpenAI
 
@@ -808,4 +808,5 @@ if prompt := st.chat_input(placeholder="✨ 무엇이든 물어보세요?"):
         response = get_ai_response(st.session_state["messages"])
         result = st.chat_message("assistant").write_stream(response)
         st.session_state["messages"].append(AIMessage(result)) 
+
 
