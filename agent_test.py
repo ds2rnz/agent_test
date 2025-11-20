@@ -230,8 +230,9 @@ else:
     # 기존 도구 결합 LLM 답변
     st.write("🤖 일반 AI 모드로 답변합니다...")
     response = llm.invoke(st.session_state["messages"])
-    result = st.chat_message("assistant").write_stream(response.content)
+    result = st.chat_message("assistant").write(response.content)
     st.session_state.messages.append(AIMessage(result))  
+
 
 
 
