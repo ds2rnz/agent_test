@@ -56,15 +56,15 @@ def debug_wrap(func):
     def wrapper(*args, **kwargs):
         func_name = func.__name__
         try:
-            print(f"[DEBUG] ▶ 실행 시작: {func_name}")
+            st.write(f"[DEBUG] ▶ 실행 시작: {func_name}")
             result = func(*args, **kwargs)
-            print(f"[DEBUG] ✅ 실행 성공: {func_name}")
+            st.write(f"[DEBUG] ✅ 실행 성공: {func_name}")
             return result
         except Exception as e:
             tb = traceback.format_exc()
-            print(f"\n[ERROR] ❌ 함수 '{func_name}' 에서 예외 발생:")
-            print(f"  └─ {e}")
-            print(tb)
+            st.write(f"\n[ERROR] ❌ 함수 '{func_name}' 에서 예외 발생:")
+            st.write(f"  └─ {e}")
+            st.write(tb)
             st.error(f"❌ 함수 '{func_name}' 실행 중 오류 발생: {e}")
             st.code(tb, language="python")
             raise
@@ -596,168 +596,6 @@ animated_input_css = """
 
 st.markdown(animated_input_css, unsafe_allow_html=True)
 
-with st.sidebar:
-    # 로고/타이틀 (선택사항)
-    st.markdown("""
-        <div style="text-align: center; padding: 0rem;">
-            <h1 style="font-size: 3.5rem; margin: 0; color: #1e293b; display: inline-block; vertical-align: middle;">🤖</h1>
-            <p style="font-size: 2.2rem; color: #1e748b; margin: 0 4rem 0 0; display: inline-block; vertical-align: middle;">
-                AI 학습기
-            </p>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    # ========== 섹션 1: 문서 학습기 ==========
-    st.markdown('<div class="sidebar-box">', unsafe_allow_html=True)
-    
-    st.markdown("""
-        <div class="sidebar-header">
-            <span>📚</span>
-            <span>문서 학습기</span>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("""
-        <p class="upload-label">
-            📎 PDF 파일 업로드 
-            <span class="badge">최대 3개</span>
-        </p>
-    """, unsafe_allow_html=True)
-    
-    uploaded_files1 = st.file_uploader(
-        "학습할 PDF 선택",
-        type=['pdf'],
-        accept_multiple_files=True,
-        key="uploader1",
-        label_visibility="collapsed"
-    )
-    
-    # 업로드된 파일 표시
-    if uploaded_files1:
-        st.markdown("""
-            <div style="background: #f0fdf4; padding: 0.5rem; border-radius: 8px; margin-top: 0.5rem;">
-                <p style="margin: 0; font-size: 0.85rem; color: #15803d; font-weight: 500;">
-                    ✅ {}개 파일 선택됨
-                </p>
-            </div>
-        """.format(len(uploaded_files1)), unsafe_allow_html=True)
-        
-        for i, file in enumerate(uploaded_files1[:3], 1):
-            st.markdown(f"""
-                <div style="font-size: 0.8rem; color: #475569; padding: 0.2rem 0.5rem;">
-                    {i}. {file.name[:30]}{'...' if len(file.name) > 30 else ''}
-                </div>
-            """, unsafe_allow_html=True)
-    
-    process1 = st.button(
-        "🚀 학습 시작",
-        key="process1",
-        type="primary",
-        # disabled=(uploaded_files1 is None or len(uploaded_files1) == 0),
-        use_container_width=True
-    )
-    
-    # 사용방법
-    st.markdown("""
-        <div class="usage-box">
-            <div class="usage-title">
-                💡 사용방법
-            </div>
-            <ol class="usage-list">
-                <li>PDF 파일을 최대 3개까지 업로드</li>
-                <li>"학습 시작" 버튼 클릭</li>
-                <li>학습 완료 후 문서 기반 질문 가능</li>
-            </ol>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # 구분선
-    st.markdown('<hr class="custom-divider">', unsafe_allow_html=True)
-    
-    # ========== 섹션 2: PDF 분석기 ==========
-    st.markdown('<div class="sidebar-box">', unsafe_allow_html=True)
-    
-    st.markdown("""
-        <div class="sidebar-header">
-            <span>🔍</span>
-            <span>PDF 분석기</span>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("""
-        <p class="upload-label">
-            📎 분석할 PDF 업로드
-            <span class="badge badge-blue">1개</span>
-        </p>
-    """, unsafe_allow_html=True)
-    
-    uploaded_files2 = st.file_uploader(
-        "분석할 PDF 선택",
-        type=['pdf'],
-        key="uploader2",
-        label_visibility="collapsed"
-    )
-    
-    # 업로드된 파일 표시
-    if uploaded_files2:
-        st.markdown(f"""
-            <div style="background: #eff6ff; padding: 0.5rem; border-radius: 8px; margin-top: 0.5rem;">
-                <p style="margin: 0; font-size: 0.85rem; color: #1e40af; font-weight: 500;">
-                    📄 {uploaded_files2.name[:35]}{'...' if len(uploaded_files2.name) > 35 else ''}
-                </p>
-                <p style="margin: 0.3rem 0 0 0; font-size: 0.75rem; color: #64748b;">
-                    크기: {uploaded_files2.size / 1024:.1f} KB
-                </p>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    process2 = st.button(
-        "🚀 분석 시작",
-        key="process2",
-        # type="primary",
-        # disabled=(uploaded_files2 is None),
-        use_container_width=True
-    )
-    
-    # 사용방법
-    st.markdown("""
-        <div class="usage-box">
-            <div class="usage-title">
-                💡 사용방법
-            </div>
-            <ol class="usage-list">
-                <li>PDF 파일 1개 업로드</li>
-                <li>"분석 시작" 버튼 클릭</li>
-                <li>키워드, 통계 등 분석 결과 확인</li>
-            </ol>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # 구분선
-    st.markdown('<hr class="custom-divider">', unsafe_allow_html=True)
-    
-    # ========== 하단 정보 ==========
-    st.markdown("""
-        <div style="text-align: center; padding: 1rem; color: #94a3b8; font-size: 0.8rem;">
-            <p style="margin: 0;">Made with ❤️ by 정보관리 Team</p>
-            <p style="margin: 0.5rem 0 0 0;">v1.0.0 | 2025</p>
-        </div>
-    """, unsafe_allow_html=True)
-
-
-
-# 문서 학습 함수 불러오기
-# if process1:
-#     st.session_state["vectorstore"] = process1_f(uploaded_files1)
-
-# # 문서 분석 함수 불러오기
-# if process2:
-#     process2_f(uploaded_files2)
-
    
 
 # 스트림릿 session_state에 메시지 저장
@@ -808,6 +646,4 @@ if prompt := st.chat_input(placeholder="✨ 무엇이든 물어보세요?"):
         response = get_ai_response(st.session_state["messages"])
         result = st.chat_message("assistant").write_stream(response)
         st.session_state["messages"].append(AIMessage(result)) 
-
-
 
