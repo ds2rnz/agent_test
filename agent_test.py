@@ -77,7 +77,7 @@ llm_with_tools = llm.bind_tools(tools)
 
 
 
-사용자의 메시지 처리하기 위한 함수
+#사용자의 메시지 처리하기 위한 함수
 def get_ai_response(messages):
     response = llm_with_tools.stream(messages) # ① llm.stream()을 llm_with_tools.stream()로 변경
     
@@ -134,6 +134,7 @@ if prompt := st.chat_input():
     
     result = st.chat_message("assistant").write_stream(response) # AI 메시지 출력
     st.session_state["messages"].append(AIMessage(result)) # AI 메시지 저장    
+
 
 
 
