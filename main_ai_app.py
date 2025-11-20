@@ -150,7 +150,7 @@ def show_main_app():
     for msg in st.session_state.messages:
         if msg.content:
             if isinstance(msg, SystemMessage):
-                st.chat_message("system").write("저는 사용자를 돕기 위해 최선을 다하는 고성군청 AI 도우미입니다")
+                st.chat_message("system").write("저는 고성군청 직원을 위해 최선을 다하는 인공지능 도우미입니다")
             elif isinstance(msg, AIMessage):
                 st.chat_message("assistant").write(msg.content)
             elif isinstance(msg, HumanMessage):
@@ -240,3 +240,4 @@ def load_vectorstore(embedding, persist_directory="C:/faiss_store"):
             return None
     else:
         return None        
+
