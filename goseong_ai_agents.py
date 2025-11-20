@@ -70,27 +70,6 @@ def get_web_search(query: str) -> str:
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-config = {"configurable": {"thread_id": "1"}}
-
-llm = init_chat_model(
-    model = "openai:gpt-4o",
-    temperature=0.6, 
-    max_tokens=1000, 
-    timeout=10, 
-    max_retries=2, 
-    )
-
-embedding = OpenAIEmbeddings(
-    model="text-embedding-3-large", 
-    api_key=st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
-    )
-
-agent = create_agent(
-    model=llm,
-    tools=[get_current_time, get_web_search],
-    middleware=[],
-    system_prompt="사용자가 질문을하면 구체적이고 자세하게 설명해주고 모르는 내용이면 인터넷 검색을 꼭해서 답변해줘 그리고 한글로 답해주세요", 
-    )
 
 # 페이지 설정
 st.set_page_config(page_title="GPT 기반 AI 도우미", page_icon="💬", layout="wide")
