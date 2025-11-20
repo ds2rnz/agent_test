@@ -64,10 +64,8 @@ tool_dict = {
 
 llm_with_tools = llm.bind_tools(tools)
 
-
-# 사용자의 메시지 처리하기 위한 함수
 def get_ai_response(messages):
-    response = llm_with_tools.stream(messages) # ① llm.stream()을 llm_with_tools.stream()로 변경
+    response = llm.stream(messages) # ① llm.stream()을 llm_with_tools.stream()로 변경
     
     gathered = None # ②
     for chunk in response:
@@ -77,17 +75,33 @@ def get_ai_response(messages):
             gathered = chunk
         else:
             gathered += chunk
- 
-    if gathered.tool_calls:
-        st.session_state.messages.append(gathered)
+     return gathered 
+
+
+
+# 사용자의 메시지 처리하기 위한 함수
+# def get_ai_response(messages):
+#     response = llm_with_tools.stream(messages) # ① llm.stream()을 llm_with_tools.stream()로 변경
+    
+#     gathered = None # ②
+#     for chunk in response:
+#         yield chunk
         
-        for tool_call in gathered.tool_calls:
-            selected_tool = tool_dict[tool_call['name']]
-            tool_msg = selected_tool.invoke(tool_call) 
-            st.session_state.messages.append(tool_msg)
+#         if gathered is None: #  ③
+#             gathered = chunk
+#         else:
+#             gathered += chunk
+ 
+#     if gathered.tool_calls:
+#         st.session_state.messages.append(gathered)
+        
+#         for tool_call in gathered.tool_calls:
+#             selected_tool = tool_dict[tool_call['name']]
+#             tool_msg = selected_tool.invoke(tool_call) 
+#             st.session_state.messages.append(tool_msg)
            
-        for chunk in get_ai_response(st.session_state.messages):
-            yield chunk
+#         for chunk in get_ai_response(st.session_state.messages):
+#             yield chunk
 
 
 # Streamlit 앱
@@ -122,6 +136,7 @@ if prompt := st.chat_input():
     
     result = st.chat_message("assistant").write_stream(response) # AI 메시지 출력
     st.session_state["messages"].append(AIMessage(result)) # AI 메시지 저장    
+
 
 
 
