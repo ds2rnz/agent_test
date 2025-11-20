@@ -32,21 +32,14 @@ import time
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# client = OpenAI()
+client = OpenAI()
 
-llm = OpenAI(
+llm = ChatOpenAI(
     model="gpt-5",
     temperature=0.4,
-    timeout=60,  # 30초 타임아웃
+    timeout=30,  # 30초 타임아웃
     max_retries=2 ) 
 
-# -- 상태 타입 정의 --
-# class GraphState(TypedDict):
-#     messages: Annotated[list, object]
-#     pdf_path: str
-#     pdf_content: str
-#     chunks: List[str]
-#     analysis_result: str
 
 
 
@@ -70,439 +63,38 @@ def debug_wrap(func):
     return wrapper
 
 
-# -- PDF 처리 함수들 --
-# def load_pdf_node(state: GraphState) -> GraphState:
-#     pdf_path = state.get("pdf_path", "")
-#     if not pdf_path or not os.path.exists(pdf_path):
-#         return {
-#             "pdf_content": "",
-#             "messages": [AIMessage(content=f"파일이 없거나 경로가 잘못되었습니다: {pdf_path}")]
-#         }
-#     try:
-#         loader = PyPDFLoader(pdf_path)
-#         pages = loader.load()
-#         full_text = "\n\n".join([page.page_content for page in pages])
-#         return {
-#             "pdf_content": full_text,
-#             "messages": [AIMessage(content=f"✅ PDF 로드 완료: {len(pages)}페이지, {len(full_text):,}자")]
-#         }
-#     except Exception as e:
-#         return {
-#             "pdf_content": "",
-#             "messages": [AIMessage(content=f"❌ PDF 로드 실패: {str(e)}")]
-#         }
-
-# def load_pdf_node(state: GraphState) -> GraphState:
-#     """PDF 파일을 로드하는 노드"""
-#     pdf_path = state.get("pdf_path", "")
-    
-#     if not pdf_path:
-#         return {
-#             "pdf_content": "",
-#             "messages": [AIMessage(content="PDF 경로가 제공되지 않았습니다.")]
-#         }
-    
-#     if not os.path.exists(pdf_path):
-#         return {
-#             "pdf_content": "",
-#             "messages": [AIMessage(content=f"파일을 찾을 수 없습니다: {pdf_path}")]
-#         }
-    
-#     try:
-#         loader = PyPDFLoader(pdf_path)
-#         pages = loader.load()
-#         full_text = "\n\n".join([page.page_content for page in pages])
-        
-#         return {
-#             "pdf_content": full_text,
-#             "messages": [AIMessage(content=f"✅ PDF 로드 완료: {len(pages)}페이지, {len(full_text):,}자")]
-#         }
-#     except Exception as e:
-#         return {
-#             "pdf_content": "",
-#             "messages": [AIMessage(content=f"❌ PDF 로드 실패: {str(e)}")]
-#         }
-
-
-# def chunk_pdf_node(state: GraphState) -> GraphState:
-#     content = state.get("pdf_content", "")
-#     if not content:
-#         return {"chunks": [], "messages": [AIMessage(content="분할할 내용이 없습니다.")]}
-#     try:
-#         splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=20)
-#         chunks = splitter.split_text(content)
-#         return {"chunks": chunks, "messages": [AIMessage(content=f"✅ 텍스트 분할 완료: {len(chunks)}개 청크")]}
-#     except Exception as e:
-#         return {"chunks": [], "messages": [AIMessage(content=f"❌ 텍스트 분할 실패: {str(e)}")]}
-
-# def chunk_pdf_node(state: GraphState) -> GraphState:
-#     """PDF 내용을 청크로 분할하는 노드"""
-#     content = state.get("pdf_content", "")
-    
-#     if not content:
-#         return {"chunks": [],
-#             "messages": [AIMessage(content="분할할 내용이 없습니다.")]
-#         }
-    
-#     try:
-#         text_splitter = RecursiveCharacterTextSplitter(
-#             chunk_size=500,
-#             chunk_overlap=50,
-#             length_function=len,
-#         )
-#         chunks = text_splitter.split_text(content)
-        
-#         return {"chunks": chunks,
-#             "messages": [AIMessage(content=f"✅ 텍스트 분할 완료: {len(chunks)}개 청크")]
-#         }
-#     except Exception as e:
-#         return {"chunks": [],
-#             "messages": [AIMessage(content=f"❌ 텍스트 분할 실패: {str(e)}")]
-#         }
-
-
-
-# def analyze_pdf_node(state: GraphState) -> GraphState:
-#     content = state.get("pdf_content", "")
-#     chunks = state.get("chunks", [])
-#     if not content:
-#         return {"analysis_result": "", "messages": [AIMessage(content="분석할 내용이 없습니다.")]}
-    # try:
-    #     words = [w for w in content.lower().split() if len(w) > 3]
-    #     word_freq = {}
-    #     for w in words:
-    #         word_freq[w] = word_freq.get(w, 0) + 1
-    #     top_keywords = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)[:10]
-
-    #     analysis = {
-    #         "word_count": len(words),
-    #         "char_count": len(content),
-    #         "chunk_count": len(chunks),
-    #         "keywords": top_keywords,
-    #         "preview": content[:500]
-    #     }
-    #     return {
-    #         "analysis_result": str(analysis),
-    #         "messages": [AIMessage(content="✅ PDF 분석 완료")]
-    #     }
-    # except Exception as e:
-    #     return {"analysis_result": "", "messages": [AIMessage(content=f"❌ 분석 실패: {str(e)}")]}
- 
-#     try:
-#         word_count = len(content.split())
-#         char_count = len(content)
-#         chunk_count = len(chunks)
-        
-#         # 키워드 추출 (빈도 기반)
-#         words = content.lower().split()
-#         word_freq = {}
-#         for word in words:
-#             if len(word) > 3:
-#                 word_freq[word] = word_freq.get(word, 0) + 1
-        
-#         top_keywords = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)[:10]
-        
-#         analysis = {
-#             "word_count": word_count,
-#             "char_count": char_count,
-#             "chunk_count": chunk_count,
-#             "keywords": top_keywords,
-#             "preview": content[:500]
-#         }
-        
-#         return {
-#             "analysis_result": str(analysis),
-#             "messages": [AIMessage(content="✅ PDF 분석 완료")]
-#         }
-#     except Exception as e:
-#         return {
-#             "analysis_result": "",
-#             "messages": [AIMessage(content=f"❌ 분석 실패: {str(e)}")]
-#         }
-
-
-
-# @st.cache_resource
-# def create_pdf_analysis_graph():
-#     """PDF 분석 그래프를 생성하는 함수"""
-#     graph = StateGraph(GraphState)
-#     graph.add_node("load_pdf", load_pdf_node)
-#     graph.add_node("chunk_pdf", chunk_pdf_node)
-#     graph.add_node("analyze_pdf", analyze_pdf_node)
-#     graph.set_entry_point("load_pdf")
-#     graph.add_edge("load_pdf", "chunk_pdf")
-#     graph.add_edge("chunk_pdf", "analyze_pdf")
-#     graph.add_edge("analyze_pdf", END)
-#     return graph.compile()
-
 
 
 # -- 도구 정의 --
-@tool
-def get_current_time(timezone: str, location: str) -> str:
-    """현재 시간을 지정된 타임존과 위치에 맞게 반환합니다."""
-    import pytz
-    from datetime import datetime
-    try:
-        tz = pytz.timezone(timezone)
-        now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
-        return f'{timezone} ({location}) 현재시각 {now}'
-    except pytz.UnknownTimeZoneError:
-        return f"알 수 없는 타임존: {timezone}"
+# @tool
+# def get_current_time(timezone: str, location: str) -> str:
+#     """현재 시간을 지정된 타임존과 위치에 맞게 반환합니다."""
+#     import pytz
+#     from datetime import datetime
+#     try:
+#         tz = pytz.timezone(timezone)
+#         now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
+#         return f'{timezone} ({location}) 현재시각 {now}'
+#     except pytz.UnknownTimeZoneError:
+#         return f"알 수 없는 타임존: {timezone}"
 
-@tool
-def get_web_search(query: str, search_period: str) -> str:
-    """DuckDuckGo API를 이용해 지정된 기간 내의 뉴스를 검색하여 결과를 반환합니다."""
-    wrapper = DuckDuckGoSearchAPIWrapper(region="kr-kr", time=search_period)
-    search = DuckDuckGoSearchResults(api_wrapper=wrapper, source="news", results_separator=';\n')
-    return search.invoke(query)
+# @tool
+# def get_web_search(query: str, search_period: str) -> str:
+#     """DuckDuckGo API를 이용해 지정된 기간 내의 뉴스를 검색하여 결과를 반환합니다."""
+#     wrapper = DuckDuckGoSearchAPIWrapper(region="kr-kr", time=search_period)
+#     search = DuckDuckGoSearchResults(api_wrapper=wrapper, source="news", results_separator=';\n')
+#     return search.invoke(query)
 
-tools = [get_current_time, get_web_search]
-tool_dict = {tool.name: tool for tool in tools}
-llm_with_tools = llm.bind_tools(tools)
+# tools = [get_current_time, get_web_search]
+# tool_dict = {tool.name: tool for tool in tools}
+# llm_with_tools = llm.bind_tools(tools)
 
 
 @debug_wrap
 def get_ai_response(messages):
-    response = llm_with_tools.stream(messages)
-    gathered = None
-    for chunk in response:
-        yield chunk
-        if gathered is None:
-            gathered = chunk
-        else:
-            gathered += chunk
+    response = llm.invoke(messages)
+    return response
 
-    if gathered and getattr(gathered, "tool_calls", None):
-        st.session_state.messages.append(gathered)
-        for tool_call in gathered.tool_calls:
-            selected_tool = tool_dict.get(tool_call['name'])
-            if selected_tool:
-                with st.spinner("도구 실행 중..."):
-                    tool_msg = selected_tool.invoke(tool_call)
-                    st.session_state.messages.append(tool_msg)
-        # 도구 호출 후 재귀적으로 응답 생성
-        yield from get_ai_response(st.session_state.messages)
-
-
-# @debug_wrap
-# def answer_question(query: str, timeout_sec: int = 60):
-#     """LLM 기반 PDF QA - ThreadExecutor 제거한 안정적인 버전"""
-
-#     st.write("🚀 질문 처리 시작")
-#     start_time = time.time()
-
-#     vectorstore = st.session_state.get("vectorstore")
-#     if vectorstore is None:
-#         st.warning("⚠️ PDF 학습이 아직 완료되지 않았습니다.")
-#         return "먼저 PDF 문서를 업로드하고 학습시켜 주세요."
-
-#     st.write("✅ vectorstore 확인 완료")
-
-#     try:
-#         # 문서에서 유사도 검사
-#         docs_with_scores = vectorstore.similarity_search_with_score(query, k=3)
-        
-#         st.write(f"🔍 문서 검색 횟수: {len(docs_with_scores)}개")
-        
-#         # 디버깅: 유사도 점수 표시
-#         for i, (doc, score) in enumerate(docs_with_scores, 1):
-#             st.write(f"  문서 {i} 유사도: {score:.4f}")
-        
-#         # 유사도 임계값 설정
-#         SIMILARITY_THRESHOLD = 1 
-        
-#         relevant_docs = [doc for doc, score in docs_with_scores if score < SIMILARITY_THRESHOLD]
-        
-#         if not relevant_docs:
-#             st.warning(f"⚠️ 질문과 관련된 내용을 찾을 수 없습니다. (최소 유사도: {min(score for _, score in docs_with_scores):.4f})")
-#             return "죄송합니다. "
-        
-#         st.success(f"✅ {len(relevant_docs)}개의 관련 문서를 찾았습니다!")
-
-#         # ==================== Retriever 생성 ====================
-#         retriever = vectorstore.as_retriever(
-#             search_type="similarity", 
-#             search_kwargs={"k": 3}
-#         )
-#         st.write("✅ retriever 생성 완료")
-
-       
-#         # ==================== QA Chain 생성 ====================
-#         qa_chain = RetrievalQA.from_chain_type(
-#             llm=llm,  # llm 가져오기
-#             chain_type="stuff",
-#             retriever=retriever,
-#             return_source_documents=True,
-#             )
-#         st.write("✅ qa_chain 생성 완료")
-
-#         # 질문 실행
-#         try:
-#             with st.spinner("🤔 답변 생성 중..."):
-#                 result = qa_chain.invoke({"query": query})
-#         except Exception as e:
-#             st.error(f"❌ invoke() 호출 중 오류 발생: {e}")
-#             st.code(traceback.format_exc(), language="python")
-#             return f"오류가 발생했습니다: {e}"
-        
-#         elapsed = time.time() - start_time
-#         st.success(f"✅ 응답 완료 ({elapsed:.2f}초)")
-
-#         # 결과 추출
-#         if isinstance(result, dict):
-#             answer = result.get("result", "답변을 생성할 수 없습니다.")
-            
-#             # LLM이 "관련 정보 없음"이라고 답한 경우 감지
-#             if "관련 정보를 찾을 수 없습니다" in answer or "관련이 없" in answer:
-#                 st.info("💡 학습된 문서와 질문이 관련이 없는 것 같습니다.")
-            
-#             # 출처 문서 표시 (선택사항)
-#             if result.get("source_documents"):
-#                 with st.expander("📚 참고 문서 보기"):
-#                     for i, doc in enumerate(result["source_documents"], 1):
-#                         st.text_area(f"문서 {i}", doc.page_content[:300], height=200)
-            
-#             return answer
-#         else:
-#             return str(result)
-
-#     except Exception as e:
-#         st.error(f"❌ 오류 발생: {e}")
-#         st.code(traceback.format_exc(), language="python")
-#         return f"오류가 발생했습니다: {e}"
-    
-
-
-# @debug_wrap
-# def process1_f(uploaded_files1):
-#     if uploaded_files1 and len(uploaded_files1) > 3:
-#         st.warning("PDF는 최대 3개까지 업로드 가능합니다!")
-#         st.warning("PDF파일을 3개만 선택하여 주세요!")
-#         return None
-#         uploaded_files1 = uploaded_files1[:3]
-
-#     if not uploaded_files1:
-#         return None
-
-#     with st.spinner("PDF 임베딩 및 벡터스토어 생성 중... 기다려주세요"):
-#         all_splits = []
-#         for uploaded_file in uploaded_files1:
-#             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-#                 tmp_file.write(uploaded_file.read())
-#                 tmp_path = tmp_file.name
-
-#             loader = PyPDFLoader(tmp_path)
-#             data = loader.load()
-#             splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=50)
-#             splits = splitter.split_documents(data)
-#             all_splits.extend(splits)
-
-#             # 파일 닫고 삭제
-#             tmp_file.close()
-#             os.remove(tmp_path)
-
-#         embedding = OpenAIEmbeddings(model="text-embedding-3-large", api_key=OPENAI_API_KEY)
-#         persist_directory = "c:/faiss_store"
-#         os.makedirs(persist_directory, exist_ok=True)
-#         st.write(f"총 문서 청크 수: {len(all_splits)}")
-
-#         # 배치 단위 임베딩 및 벡터스토어 생성
-#         batch_size = 20
-#         vectorstore = None
-#         for i in range(0, len(all_splits), batch_size):
-#             batch = all_splits[i:i+batch_size]
-#             st.write(f"배치 {i//batch_size + 1} 임베딩 중...")
-#             # batch 문서 임베딩
-#             try:
-#                 if vectorstore is None:
-#                     vectorstore = FAISS.from_documents(batch, embedding
-#                         # documents=batch,
-#                         # embedding=embedding,
-#                         # persist_directory=persist_directory
-#                     )
-#                 else:
-#                     vectorstore.add_documents(batch)
-#                 vectorstore.save_local(persist_directory)
-#                 time.sleep(1.5)  # API 과부하 방지용 약간의 대기
-#             except Exception as e:
-#                 st.error(f"임베딩 에러: {e}")    
-
-#         st.success("학습이 완료되었습니다!")
-#         return vectorstore
-
-
-
-# @debug_wrap
-# def process2_f(uploaded_files2):
-#     if not uploaded_files2:
-#         st.info("👆 PDF 파일을 업로드하여 시작하세요!")
-#         return
-
-#     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-#         tmp_file.write(uploaded_files2.read())
-#         tmp_path = tmp_file.name
-
-#     try:
-#         with st.spinner("📄 PDF 분석 중..."):
-#             app = create_pdf_analysis_graph()
-#             initial_state = {
-#                 "messages": [],
-#                 "pdf_path": tmp_path,
-#                 "pdf_content": "",
-#                 "chunks": [],
-#                 "analysis_result": ""
-#             }
-#             progress_bar = st.progress(0)
-#             status_text = st.empty()
-
-#             status_text.text("📄 PDF 로딩 중...")
-#             progress_bar.progress(33)
-#             result = app.invoke(initial_state)
-#             progress_bar.progress(100)
-#             status_text.text("✅ 분석 완료!")
-
-#             st.success("✅ PDF 분석이 완료되었습니다!")
-
-#             # 분석 결과 표시
-#             analysis_data = ast.literal_eval(result.get("analysis_result", "{}"))
-
-#             tab1, tab2, tab3 = st.tabs(["📊 분석 결과", "📝 키워드", "🔍 미리보기"])
-#             with tab1:
-#                 col1, col2, col3 = st.columns(3)
-#                 col1.metric("총 단어 수", f"{analysis_data.get('word_count', 0):,}")
-#                 col2.metric("총 문자 수", f"{analysis_data.get('char_count', 0):,}")
-#                 col3.metric("청크 수", analysis_data.get('chunk_count', 0))
-
-#             with tab2:
-#                 keywords = analysis_data.get('keywords', [])
-#                 if keywords:
-#                     import pandas as pd
-#                     df = pd.DataFrame(keywords, columns=["키워드", "빈도"])
-#                     st.dataframe(df, use_container_width=True)
-#                     st.bar_chart(df.set_index("키워드"))
-#                 else:
-#                     st.info("키워드를 찾을 수 없습니다.")
-
-#             with tab3:
-#                 st.text_area("문서 미리보기 (첫 500자)", analysis_data.get('preview', ''), height=300)
-
-#             with st.expander("🔧 처리 로그"):
-#                 for i, msg in enumerate(result.get("messages", []), 1):
-#                     st.text(f"{i}. {msg.content}")
-
-#             with st.expander("🐛 디버그 정보"):
-#                 st.json({
-#                     "파일명": uploaded_files2.name,
-#                     "파일크기": f"{uploaded_files2.size:,} bytes",
-#                     "메시지 수": len(result.get("messages", []))
-#                 })
-
-#     except Exception as e:
-#         st.error(f"❌ 오류 발생: {str(e)}")
-#     finally:
-#         if os.path.exists(tmp_path):
-#             os.unlink(tmp_path)
 
 
 
@@ -616,8 +208,6 @@ for msg in st.session_state.messages:
             st.chat_message("assistant").write(msg.content)
         elif isinstance(msg, HumanMessage):
             st.chat_message("user").write(msg.content)
-        # elif isinstance(msg, ToolMessage):
-        #     st.chat_message("tool").write(msg.content)
 
 
 # 사용자 입력 처리
@@ -631,20 +221,20 @@ if prompt := st.chat_input(placeholder="✨ 무엇이든 물어보세요?"):
         st.write("📚 학습된 문서를 기반으로 답변합니다...")
         answer = get_ai_response(prompt)
         
-        if answer == "죄송합니다. ":
-            st.write("🤖 일반 AI 모드로 답변합니다...")
-            response = llm.invoke(st.session_state["messages"])
-            result = st.chat_message("assistant").write(response)
-            st.session_state["messages"].append(AIMessage(result)) 
-        else:    
-            st.chat_message("assistant").write(answer)
-            st.session_state.messages.append(AIMessage(answer))
     else:
-        # 기존 도구 결합 LLM 답변
         st.write("🤖 일반 AI 모드로 답변합니다...")
-        response = llm.invoke(st.session_state["messages"])
+        response = get_ai_response(st.session_state["messages"])
         result = st.chat_message("assistant").write(response)
         st.session_state["messages"].append(AIMessage(result)) 
+else:
+    # 기존 도구 결합 LLM 답변
+    st.write("🤖 일반 AI 모드로 답변합니다...")
+    response = llm.invoke(st.session_state["messages"])
+    result = st.chat_message("assistant").write_stream(response)
+    st.session_state["messages"].append(AIMessage(result)) 
+
+
+
 
 
 
