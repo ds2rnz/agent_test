@@ -38,7 +38,7 @@ client = OpenAI()
 llm = ChatOpenAI(
     model="gpt-5",
     temperature=0.4,
-    timeout=30,  # 30초 타임아웃
+    timeout=60,  # 30초 타임아웃
     max_retries=2 ) 
 
 # -- 상태 타입 정의 --
@@ -646,4 +646,5 @@ if prompt := st.chat_input(placeholder="✨ 무엇이든 물어보세요?"):
         response = get_ai_response(st.session_state["messages"])
         result = st.chat_message("assistant").write_stream(response)
         st.session_state["messages"].append(AIMessage(result)) 
+
 
