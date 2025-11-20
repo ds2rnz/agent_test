@@ -71,8 +71,6 @@ def get_ai_response(messages):
     for chunk in response:
         yield chunk
         
-	 messages=st.session_state.messages.append(chunk)		
-     return messages
 
 
 
@@ -133,6 +131,7 @@ if prompt := st.chat_input():
     
     result = st.chat_message("assistant").write_stream(response) # AI 메시지 출력
     st.session_state["messages"].append(AIMessage(result)) # AI 메시지 저장    
+
 
 
 
