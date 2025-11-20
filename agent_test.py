@@ -89,7 +89,6 @@ def get_ai_response(messages):
         for tool_call in gathered.tool_calls:
             selected_tool = tool_dict[tool_call['name']]
             tool_msg = selected_tool.invoke(tool_call) 
-            print(tool_msg, type(tool_msg))
             st.session_state.messages.append(tool_msg)
            
         for chunk in get_ai_response(st.session_state.messages):
@@ -128,3 +127,4 @@ if prompt := st.chat_input():
     
     result = st.chat_message("assistant").write_stream(response) # AI 메시지 출력
     st.session_state["messages"].append(AIMessage(result)) # AI 메시지 저장    
+
