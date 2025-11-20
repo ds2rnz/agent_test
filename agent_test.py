@@ -63,7 +63,7 @@ tool_dict = {
 }
 
 # llm_with_tools = llm.bind_tools(tools)
-openai_tool = [{"type": "web_search},]
+openai_tool = [{"type": "web_search"},]
 
 
 def get_ai_response(messages):
@@ -134,6 +134,7 @@ if prompt := st.chat_input():
     
     result = st.chat_message("assistant").write_stream(response) # AI 메시지 출력
     st.session_state["messages"].append(AIMessage(result)) # AI 메시지 저장    
+
 
 
 
