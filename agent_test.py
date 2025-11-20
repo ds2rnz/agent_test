@@ -62,14 +62,17 @@ tool_dict = {
     "get_web_search": get_web_search
 }
 
-llm_with_tools = llm.bind_tools(tools)
+# llm_with_tools = llm.bind_tools(tools)
+openai_tool = [{"type": "web_search},]
+
 
 def get_ai_response(messages):
-    response = llm.stream(messages) # ① llm.stream()을 llm_with_tools.stream()로 변경
+    response = llm.stream(messages, tools=openai_tool) # ① llm.stream()을 llm_with_tools.stream()로 변경
     
     gathered = None # ②
     for chunk in response.content:
-        yield chunk
+	    gathered += chunk
+        yield gathered
         
 
 
@@ -131,6 +134,7 @@ if prompt := st.chat_input():
     
     result = st.chat_message("assistant").write_stream(response) # AI 메시지 출력
     st.session_state["messages"].append(AIMessage(result)) # AI 메시지 저장    
+
 
 
 
