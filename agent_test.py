@@ -222,16 +222,17 @@ if prompt := st.chat_input(placeholder="✨ 무엇이든 물어보세요?"):
         answer = get_ai_response(prompt)
         
     else:
-        st.write("🤖 일반 AI 모드로 답변합니다...")
+        st.write("🤖 일반 AI 모드로 답변합니다...1")
         response = get_ai_response(st.session_state["messages"])
         result = st.chat_message("assistant").write(response.content)
         st.session_state.messages.append({"role": "aissistant", "content": result}) 
 else:
     # 기존 도구 결합 LLM 답변
-    st.write("🤖 일반 AI 모드로 답변합니다...")
+    st.write("🤖 일반 AI 모드로 답변합니다...2")
     response = llm.invoke(st.session_state["messages"])
     result = st.chat_message("assistant").write(response.content)
     st.session_state.messages.append(AIMessage(result))  
+
 
 
 
