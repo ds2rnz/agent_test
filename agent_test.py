@@ -18,88 +18,12 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # 모델 초기화
 llm = ChatOpenAI(model="gpt-5")
 
-# 도구 함수 정의
-@tool
-def get_current_time(timezone: str, location: str) -> str:
-    """현재 시각을 반환하는 함수."""
-    try:
-        tz = pytz.timezone(timezone)
-        now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
-        result = f'{timezone} ({location}) 현재시각 {now}'
-        return result
-    except pytz.UnknownTimeZoneError:
-        return f"알 수 없는 타임존: {timezone}"
-    
-@tool
-def get_web_search(query: str, search_period: str) -> str:	#①
-	#③
-    """
-    웹 검색을 수행하는 함수.
 
-    Args:
-        query (str): 검색어
-        search_period (str): 검색 기간 (e.g., "w" for past week, "m" for past month, "y" for past year)	#②
-
-    Returns:
-        str: 검색 결과
-    """
-    wrapper = DuckDuckGoSearchAPIWrapper(region="kr-kr", time=search_period)
-
-    search = DuckDuckGoSearchResults(
-        api_wrapper=wrapper,
-        # source="news",
-        results_separator=';\n'
-    )
-
-    docs = search.invoke(query)
-    return docs
-
-
-# 도구 바인딩
-tools = [get_current_time, get_web_search]
-tool_dict = {
-    "get_current_time": get_current_time, 
-    "get_web_search": get_web_search
-}
-
-llm_with_tools = llm.bind_tools(tools)
-# openai_tool = [{"type": "web_search"},]
-
-
-# def get_ai_response(messages):
-#     response = llm.stream(messages, tools=openai_tool) # ① llm.stream()을 llm_with_tools.stream()로 변경
-    
-#     gathered = None # ②
-#     for chunk in response.content:
-# 	    gathered += chunk
-#         yield gathered
-        
-
-
-
-#사용자의 메시지 처리하기 위한 함수
 def get_ai_response(messages):
-    response = llm_with_tools.stream(messages) # ① llm.stream()을 llm_with_tools.stream()로 변경
-    
-    gathered = None # ②
-    for chunk in response:
-        yield chunk
-        
-        if gathered is None: #  ③
-            gathered = chunk
-        else:
-            gathered += chunk
- 
-    if gathered.tool_calls:
-        st.session_state.messages.append(gathered)
-        
-        for tool_call in gathered.tool_calls:
-            selected_tool = tool_dict[tool_call['name']]
-            tool_msg = selected_tool.invoke(tool_call) 
-            st.session_state.messages.append(tool_msg)
-           
-        for chunk in get_ai_response(st.session_state.messages):
-            yield chunk
+    for chunk in llm.stream(messages):
+        text = getattr(chunk, "content", None)
+        if isinstance(text, str) and text:
+           yield text
 
 
 # Streamlit 앱
@@ -133,7 +57,8 @@ if prompt := st.chat_input():
     response = get_ai_response(st.session_state["messages"])
     
     result = st.chat_message("assistant").write_stream(response) # AI 메시지 출력
-    st.session_state["messages"].append(AIMessage(result)) # AI 메시지 저장    
+    st.session_state["messages"].append(AIMessage(result)) # AI 메시지 저장   
+
 
 
 
