@@ -1,5 +1,5 @@
 import streamlit as st
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, OpenAI
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langchain_core.tools import tool
 from datetime import datetime
@@ -28,14 +28,13 @@ import concurrent.futures
 import traceback
 import inspect
 import time
-from langchain.messages import AIMessage
 
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-client = OpenAI()
+# client = OpenAI()
 
-llm = ChatOpenAI(
+llm = OpenAI(
     model="gpt-5",
     temperature=0.4,
     timeout=60,  # 30초 타임아웃
@@ -635,7 +634,7 @@ if prompt := st.chat_input(placeholder="✨ 무엇이든 물어보세요?"):
         if answer == "죄송합니다. ":
             st.write("🤖 일반 AI 모드로 답변합니다...")
             response = llm.invoke(st.session_state["messages"])
-            result = st.chat_message("assistant").write(response.content)
+            result = st.chat_message("assistant").write(response)
             st.session_state["messages"].append(AIMessage(result)) 
         else:    
             st.chat_message("assistant").write(answer)
@@ -644,8 +643,9 @@ if prompt := st.chat_input(placeholder="✨ 무엇이든 물어보세요?"):
         # 기존 도구 결합 LLM 답변
         st.write("🤖 일반 AI 모드로 답변합니다...")
         response = llm.invoke(st.session_state["messages"])
-        result = st.chat_message("assistant").write(response.content)
+        result = st.chat_message("assistant").write(response)
         st.session_state["messages"].append(AIMessage(result)) 
+
 
 
 
