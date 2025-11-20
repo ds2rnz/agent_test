@@ -28,7 +28,7 @@ import concurrent.futures
 import traceback
 import inspect
 import time
-from langchain.agents import AIMessage
+from langchain.messages import AIMessage
 
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -808,5 +808,6 @@ if prompt := st.chat_input(placeholder="✨ 무엇이든 물어보세요?"):
         response = get_ai_response(st.session_state["messages"])
         result = st.chat_message("assistant").write_stream(response)
         st.session_state["messages"].append(AIMessage(result)) 
+
 
 
