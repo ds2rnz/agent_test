@@ -19,11 +19,16 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 llm = ChatOpenAI(model="gpt-5")
 
 
+# def get_ai_response(messages):
+#     for chunk in llm.stream(messages):
+#         text = getattr(chunk, "content", None)
+#         if isinstance(text, str) and text:
+#            yield text
+
 def get_ai_response(messages):
-    for chunk in llm.stream(messages):
-        text = getattr(chunk, "content", None)
-        if isinstance(text, str) and text:
-           yield text
+    messages = llm.stream(messages)
+    return messages
+
 
 
 # Streamlit 앱
@@ -58,6 +63,7 @@ if prompt := st.chat_input():
     
     result = st.chat_message("assistant").write_stream(response) # AI 메시지 출력
     st.session_state["messages"].append(AIMessage(result)) # AI 메시지 저장   
+
 
 
 
