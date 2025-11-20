@@ -16,7 +16,7 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # 모델 초기화
-llm = ChatOpenAI(model="gpt-4o-mini")
+llm = ChatOpenAI(model="gpt-5")
 
 # 도구 함수 정의
 @tool
@@ -127,4 +127,5 @@ if prompt := st.chat_input():
     
     result = st.chat_message("assistant").write_stream(response) # AI 메시지 출력
     st.session_state["messages"].append(AIMessage(result)) # AI 메시지 저장    
+
 
