@@ -118,17 +118,18 @@ if prompt := st.chat_input():
     st.chat_message("user").write(prompt) # 사용자 메시지 출력
     st.session_state.messages.append(HumanMessage(prompt)) # 사용자 메시지 저장
 
-# 스트리밍 응답
-stream = get_ai_response(st.session_state["messages"])
-final_text = st.chat_message("assistant").write_stream(stream)
+   # 스트리밍 응답
+   stream = get_ai_response(st.session_state["messages"])
+   final_text = st.chat_message("assistant").write_stream(stream)
 
-# 후처리: 도구/검색 로그 제거
-if isinstance(final_text, str):
-    final_text = strip_tool_noise(final_text)
+   # 후처리: 도구/검색 로그 제거
+   if isinstance(final_text, str):
+       final_text = strip_tool_noise(final_text)
 
 # 최종 응답 저장
 if final_text:
     st.session_state["messages"].append(AIMessage(content=final_text))   
+
 
 
 
