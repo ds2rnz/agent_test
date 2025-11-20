@@ -231,7 +231,8 @@ else:
     st.write("🤖 일반 AI 모드로 답변합니다...2")
     response = llm.invoke(st.session_state["messages"])
     result = st.chat_message("assistant").write(response.content)
-    st.session_state.messages.append(AIMessage(result))  
+    st.session_state.messages.append({"role": "aissistant", "content": result}) 
+
 
 
 
