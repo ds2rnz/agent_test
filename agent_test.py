@@ -26,7 +26,6 @@ def get_current_time(timezone: str, location: str) -> str:
         tz = pytz.timezone(timezone)
         now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
         result = f'{timezone} ({location}) 현재시각 {now}'
-        print(result)
         return result
     except pytz.UnknownTimeZoneError:
         return f"알 수 없는 타임존: {timezone}"
@@ -45,10 +44,6 @@ def get_web_search(query: str, search_period: str) -> str:	#①
         str: 검색 결과
     """
     wrapper = DuckDuckGoSearchAPIWrapper(region="kr-kr", time=search_period)
-
-    print('-------- WEB SEARCH --------')
-    print(query)
-    print(search_period)
 
     search = DuckDuckGoSearchResults(
         api_wrapper=wrapper,
@@ -127,5 +122,6 @@ if prompt := st.chat_input():
     
     result = st.chat_message("assistant").write_stream(response) # AI 메시지 출력
     st.session_state["messages"].append(AIMessage(result)) # AI 메시지 저장    
+
 
 
