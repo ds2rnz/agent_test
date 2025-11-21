@@ -61,10 +61,13 @@ def answer_question(query: str):
 
                     답변:"""
 
+        # prompt = PromptTemplate(
+        #          # template={"[page_content]"},
+        #          input_variables=["page_content"]
+        #          )
         prompt = PromptTemplate(
-                 # template={"[page_content]"},
-                 input_variables=["page_content"]
-                 )
+                 template="다음 자료를 바탕으로 질문에 답하세요.\n자료:\n{page_content}\n\n질문: {question}\n답변을 한국어로:", 
+                 input_variables=["page_content", "question"], )
         retriever = vectorstore.as_retriever(search_kwargs={"k":3})
         qa_chain = create_retriever_tool(
                 retriever=retriever,
@@ -179,6 +182,7 @@ def process1_f(uploaded_files1):
         st.error(f"❌ 학습 중 오류 발생: {e}")
         st.code(traceback.format_exc(), language="python")
         return None
+
 
 
 
