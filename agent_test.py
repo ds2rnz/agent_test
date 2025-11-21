@@ -23,7 +23,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 
 # 모델 초기화
-llm = ChatOpenAI(model="gpt-4.5")
+llm = ChatOpenAI(model="gpt-5")
 
 
 # ==================== 메인 실행 ====================
@@ -49,6 +49,7 @@ if not st.session_state.logged_in:
    show_login_page()
 else:
     show_main_app()
+
 
 
 
