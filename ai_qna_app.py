@@ -62,7 +62,7 @@ def answer_question(query: str):
                     답변:"""
 
         prompt = PromptTemplate(
-                 template="[page_content]",
+                 template={"[page_content]"},
                  input_variables=["page_content"]
                  )
         retriever = vectorstore.as_retriever(search_kwargs={"k":3})
@@ -179,6 +179,7 @@ def process1_f(uploaded_files1):
         st.error(f"❌ 학습 중 오류 발생: {e}")
         st.code(traceback.format_exc(), language="python")
         return None
+
 
 
 
