@@ -66,7 +66,7 @@ def answer_question(query: str):
                 input_variables=["context", "question"]
                 )
         retriever = vectorstore.as_retriever(search_kwargs={"k":3})
-        qa_chain = create_retriever_tool.from_chain_type(
+        qa_chain = create_retriever_tool(
                llm=llm,
                chain_type="stuff",
                retriever=retriever,
@@ -180,6 +180,7 @@ def process1_f(uploaded_files1):
         st.error(f"❌ 학습 중 오류 발생: {e}")
         st.code(traceback.format_exc(), language="python")
         return None
+
 
 
 
