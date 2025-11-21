@@ -114,7 +114,7 @@ def show_main_app():
 
     # 메시지 초기화
     if "messages" not in st.session_state:
-        usr_name = f"무엇을 도와 드릴까요? :{str(st.session_state.user_info['name'])}님" 
+        usr_name = f"무엇을 도와 드릴까요? {str(st.session_state.user_info['name'])}님" 
         st.session_state.messages = [
             {"role": "system", "content": "저는 고성군청 직원을 위해 최선을 다하는 인공지능 도우미입니다."},
             {"role": "assistant", "content": usr_name}
@@ -205,6 +205,7 @@ def load_vectorstore(embedding, persist_directory="C:/faiss_store"):
             return None
     else:
         return None        
+
 
 
 
