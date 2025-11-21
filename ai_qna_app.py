@@ -67,13 +67,11 @@ def answer_question(query: str):
                 )
         retriever = vectorstore.as_retriever(search_kwargs={"k":3})
         qa_chain = create_retriever_tool(
-               # llm=llm,
-               chain_type="stuff",
                retriever=retriever,
-               chain_type_kwargs={"prompt": prompt},
-               return_source_documents=False
-                )
-        result = qa_chain.invoke({"query": query})
+               name="policy_retriever", 
+               description="고성군청 업무 관련 문서 검색"
+               )
+        result = llm.invoke({qa_chain})
         if isinstance(result, dict):
             return result.get("result", "답변을 생성할 수 없습니다.")
         else:
@@ -180,6 +178,7 @@ def process1_f(uploaded_files1):
         st.error(f"❌ 학습 중 오류 발생: {e}")
         st.code(traceback.format_exc(), language="python")
         return None
+
 
 
 
