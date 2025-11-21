@@ -45,10 +45,11 @@ if 'user_info' not in st.session_state:
     st.session_state.user_info = None
 
 # 로그인 상태에 따라 페이지 표시
-if not st.session_state.logged_in:
-    show_login_page()
-else:
+# if not st.session_state.logged_in:
+#    show_login_page()
+# else:
     show_main_app()
+
 
 
 
