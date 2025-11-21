@@ -151,9 +151,8 @@ def show_main_app():
                         response = ai_answer(st.session_state.messages)
                         ai_response = response['messages'][-1].content
                         st.toast("일반 AI 모드로 답변합니다....!", icon="🎉")
-                        
                         st.session_state.messages.append({"role": "assistant", "content": ai_response})
-                        st.chat_message("assistant").write(ai_response)
+                        st.chat_message("assistant").write_stream(ai_response)
                     except Exception as e:
                         error_msg = f"오류가 발생했습니다: {str(e)}"
                         st.session_state.messages.append({"role": "assistant", "content": error_msg})
@@ -167,13 +166,12 @@ def show_main_app():
                     response = ai_answer(st.session_state.messages)
                     ai_response = response['messages'][-1].content
                     st.toast("일반 AI 모드로 답변합니다....!", icon="🎉")
-                    
                     st.session_state.messages.append({"role": "assistant", "content": ai_response})
                     st.chat_message("assistant").write_stream(ai_response)
                 except Exception as e:
                     error_msg = f"오류가 발생했습니다: {str(e)}"
                     st.session_state.messages.append({"role": "assistant", "content": error_msg})
-                    st.chat_message("assistant").write_stream(error_msg)
+                    st.chat_message("assistant").write(error_msg)
 
     # 문서 학습 처리
     if process1:
@@ -206,6 +204,7 @@ def load_vectorstore(embedding, persist_directory="C:/faiss_store"):
             return None
     else:
         return None        
+
 
 
 
