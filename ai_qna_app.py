@@ -69,7 +69,7 @@ def answer_question(query: str):
         qa_chain = create_retriever_tool(
                retriever=retriever,
                name="policy_retriever", 
-               description="고성군청 업무 관련 문서 검색"
+               description="고성군청 업무 관련 문서 검색",
                document_prompt=prompt,              
                )
         result = qa_cahin.invoke({"query": query})
@@ -179,6 +179,7 @@ def process1_f(uploaded_files1):
         st.error(f"❌ 학습 중 오류 발생: {e}")
         st.code(traceback.format_exc(), language="python")
         return None
+
 
 
 
