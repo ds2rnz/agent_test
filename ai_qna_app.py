@@ -15,12 +15,71 @@ import traceback
 import time
 import pytz
 from datetime import datetime
+from langchain.chat_models import init_chat_model
 from langchain_openai import ChatOpenAI
+from langchain.agents import create_agent
+
+@tool
+def get_current_time(timezone: str, location: str) -> str:
+    '''  해당 지역 현재시각을 구하는 함수 '''
+    try:
+        tz = pytz.timezone(timezone)
+        now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
+        result = f'{timezone} ({location}) 현재시각 {now}'
+        return result
+    except pytz.UnknownTimeZoneError:
+        return f"알 수 없는 타임존: {timezone}"  
+
+@tool
+def get_web_search(query: str) -> str:
+    """
+    웹 검색을 수행하는 함수.
+
+    Args:
+        query (str): 검색어
+    Returns:
+        str: 검색 결과
+    """
+    custom_wrapper = DuckDuckGoSearchAPIWrapper(region="kr-kr", time="y", max_results=10)
+    search = DuckDuckGoSearchResults(
+        api_wrapper=custom_wrapper,
+        source="news, image, text",
+        results_separator=';\n')
+    
+    results = search.run(query)
+
+    st.toast("웹 검색을 통아여 알아보고 있습니다.", icon="🎉")
+    return results
 
 
 
-llm = ChatOpenAI(
-    model = "gpt-5-mini" 
+config = {"configurable": {"thread_id": "1"}}
+
+system_prompt_text = """
+당신은 고성군청 직원을 위한 친절한 고성군청 AI 도우미입니다.
+
+1. 직원들이 질문하면 구체적이고 자세하게 설명해주세요 .
+2. 모르는 내용이면 도구를 이용하여 인터넷 검색을 꼭해서 답변해주세요.
+3. 인터넷 검색에 대하여 링크를 표시해 주세요.
+4. 이 지역은 강원도 고성군입니다.
+   - 고성군청 주소는 강원특별자치도 고성군 간성읍 고성중앙길9입니다.
+5. 강원도 고성군 관련 관광지 질문이 들어오면 아래 홈페이지를 참고하여 답해주세요.
+   - 고성군 관광포털 사이트 : https://gwgs.go.kr/tour/index.do
+6. 강원도 고성군 고성군청에 관하여 질문이 들어오면 아래 홈페이지를 참고하여 답해주세요
+   - 고성군청 홈페이지 : https://gwgs.go.kr
+7. 고성군수는 함명준입니다.
+   - 고성군수는 고성군 발전을 위하여 노력하시는분입니다.
+8. 고성군청 ai 도우미는 고성군청 총무행정관 정보관리팀에서 agent를 제작하였습니다.
+   - langchain을 기반으로 제작하였으며, RAG기술과 학습기능을 탐재하였으며, 지속적으로 기능추가 예정입니다.
+9. 한글로 답해주세요
+"""
+
+llm = init_chat_model(
+    model = "openai:gpt-5-mini",
+    temperature=0.9, 
+    max_tokens=2000, 
+    # timeout=100,
+    max_retries=2, 
     )
 
 
@@ -28,6 +87,15 @@ embedding = OpenAIEmbeddings(
     model="text-embedding-3-large", 
     api_key=st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
     )
+
+
+agent = create_agent(
+    model=llm,
+    tools=[get_current_time, get_web_search],
+    middleware=[],
+    system_prompt=system_prompt_text, 
+    )
+
 
 
 def answer_question(query: str):
@@ -86,7 +154,11 @@ def answer_question(query: str):
                 
 
 def ai_answer(messages):
-    response = llm.stream(messages)
+    response = agent.invoke(
+    {"messages": messages},
+        config=config,
+        tool_choice='any'
+        )
     return response
 
 
@@ -118,8 +190,8 @@ def process1_f(uploaded_files1):
                     data = loader.load()
                     
                     splitter = RecursiveCharacterTextSplitter(
-                        chunk_size=300, 
-                        chunk_overlap=50
+                        chunk_size=600, 
+                        chunk_overlap=100
                     )
                     splits = splitter.split_documents(data)
                     all_splits.extend(splits)
@@ -181,6 +253,51 @@ def process1_f(uploaded_files1):
         st.error(f"❌ 학습 중 오류 발생: {e}")
         st.code(traceback.format_exc(), language="python")
         return None
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

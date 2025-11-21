@@ -2,35 +2,14 @@ import streamlit as st
 import os
 from langchain_classic.chains import RetrievalQA
 from langchain_community.vectorstores import FAISS
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage
 from ai_qna_app import process1_f, ai_answer, answer_question
 from config import get_embedding
 
 
 
-system_prompt_text = """
-    당신은 고성군청 직원을 위한 친절한 고성군청 AI 도우미입니다.
-
-    1. 직원들이 질문하면 구체적이고 자세하게 설명해주세요 .
-    2. 모르는 내용이면 도구를 이용하여 인터넷 검색을 꼭해서 답변해주세요.
-    3. 인터넷 검색에 대하여 링크를 표시해 주세요.
-    4. 이 지역은 강원도 고성군입니다.
-    - 고성군청 주소는 강원특별자치도 고성군 간성읍 고성중앙길9입니다.
-    5. 강원도 고성군 관련 관광지 질문이 들어오면 아래 홈페이지를 참고하여 답해주세요.
-    - 고성군 관광포털 사이트 : https://gwgs.go.kr/tour/index.do
-    6. 강원도 고성군 고성군청에 관하여 질문이 들어오면 아래 홈페이지를 참고하여 답해주세요
-    - 고성군청 홈페이지 : https://gwgs.go.kr
-    7. 고성군수는 함명준입니다.
-    - 고성군수는 고성군 발전을 위하여 노력하시는분입니다.
-    8. 고성군청 ai 도우미는 고성군청 총무행정관 정보관리팀에서 agent를 제작하였습니다.
-    - langchain을 기반으로 제작하였으며, RAG기술과 학습기능을 탐재하였으며, 지속적으로 기능추가 예정입니다.
-    9. 한글로 답해주세요
-    """
-
 
 def show_main_app():
     """메인 AI 도우미 앱"""
-
     
     # 페이지 설정
     st.markdown("""
@@ -133,28 +112,18 @@ def show_main_app():
             </div>
         """, unsafe_allow_html=True)
 
-
-        # 스트림릿 session_state에 메시지 저장-------
-
     # 메시지 초기화
     if "messages" not in st.session_state:
-        st.session_state["messages"] = [
-            SystemMessage(content=system_prompt_text),  
-            AIMessage("무엇이을 도와 드릴까요?")
-    ]    
-
-      
+        st.session_state.messages = [
+            {"role": "system", "content": "저는 고성군청 직원을 위해 최선을 다하는 인공지능 도우미입니다."},
+            {"role": "assistant", "content": "무엇이을 도와 드릴까요?"}
+        ]
 
     # 메시지 출력
-
     for msg in st.session_state.messages:
-        if msg.content:
-            if isinstance(msg, SystemMessage):
-                st.chat_message("system").write("저는 고성군청 직원을 위해 최선을 다하는 인공지능 도우미입니다")
-            elif isinstance(msg, AIMessage):
-                st.chat_message("assistant").write(msg.content)
-            elif isinstance(msg, HumanMessage):
-                st.chat_message("user").write(msg.content)    
+        role = msg["role"]
+        content = msg["content"]
+        st.chat_message(role).write(content)
 
     # vectorstore 로드
     if "vectorstore" not in st.session_state:
@@ -163,10 +132,9 @@ def show_main_app():
             persist_directory="C:/faiss_store"
         )
 
-
     # 사용자 입력 처리
     if prompt := st.chat_input(placeholder="무엇이든 물어보세요?"):
-        st.session_state.messages.append(HumanMessage(prompt))
+        st.session_state.messages.append({"role": "user", "content": prompt})
         st.chat_message("user").write(prompt)
         
         vectorstore = st.session_state.get("vectorstore")
@@ -176,38 +144,36 @@ def show_main_app():
                 answer = answer_question(prompt)
 
             if answer and "죄송합니다. " in answer or len(answer) < 30:
-                st.info("💡 학습된 문서에서 관련 내용을 찾지 못했습니다. 일반 AI 모드로 전환합니다.")
+                # st.info("💡 학습된 문서에서 관련 내용을 찾지 못했습니다. 일반 AI 모드로 전환합니다.")
                 
                 with st.spinner("답변 생성 중..."):
                     try:
-                        response = ai_answer(st.session_state["messages"])
-                        # ai_response = response['messages'][-1].content
+                        response = ai_answer(st.session_state.messages)
+                        ai_response = response['messages'][-1].content
                         st.toast("일반 AI 모드로 답변합니다....!", icon="🎉")
                         
-                        result = st.chat_message("assistant").write_stream(response) # AI 메시지 출력
-                        st.session_state["messages"].append(AIMessage(result)) # AI 메시지 저장
+                        st.session_state.messages.append({"role": "assistant", "content": ai_response})
+                        st.chat_message("assistant").write(ai_response)
                     except Exception as e:
                         error_msg = f"오류가 발생했습니다: {str(e)}"
-                        st.session_state.messages.append(AIMessage(error_msg))
+                        st.session_state.messages.append({"role": "assistant", "content": error_msg})
                         st.chat_message("assistant").write(error_msg)
             else:
-                st.session_state.messages.append(AIMessage(answer))
+                st.session_state.messages.append({"role": "assistant", "content": answer})
                 st.chat_message("assistant").write(answer)
         else:
             with st.spinner("답변 생성 중..."):
                 try:
-                    response = ai_answer(st.session_state["messages"])
-                    # ai_response = response['messages'][-1].content
+                    response = ai_answer(st.session_state.messages)
+                    ai_response = response['messages'][-1].content
                     st.toast("일반 AI 모드로 답변합니다....!", icon="🎉")
                     
-                    result = st.chat_message("assistant").write_stream(response) # AI 메시지 출력
-                    st.session_state["messages"].append(AIMessage(result)) # AI 메시지 저장
+                    st.session_state.messages.append({"role": "assistant", "content": ai_response})
+                    st.chat_message("assistant").write(ai_response)
                 except Exception as e:
                     error_msg = f"오류가 발생했습니다: {str(e)}"
-                    st.session_state.messages.append(AIMessage(error_msg))
+                    st.session_state.messages.append({"role": "assistant", "content": error_msg})
                     st.chat_message("assistant").write(error_msg)
-
-
 
     # 문서 학습 처리
     if process1:
@@ -240,4 +206,13 @@ def load_vectorstore(embedding, persist_directory="C:/faiss_store"):
             return None
     else:
         return None        
+
+
+
+
+
+
+
+
+
 
