@@ -6,7 +6,7 @@ from langchain_community.tools import DuckDuckGoSearchResults
 from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain_core.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
 from langchain_classic.tools.retriever import create_retriever_tool
 from pathlib import Path
 import tempfile
@@ -65,9 +65,15 @@ def answer_question(query: str):
         #          # template={"[page_content]"},
         #          input_variables=["page_content"]
         #          )
-        prompt = PromptTemplate(
-                 template="다음 자료를 바탕으로 질문에 답하세요.\n자료:\n{page_content}\n\n질문: {question}\n답변을 한국어로:", 
-                 input_variables=["page_content", "question"], )
+        # prompt = PromptTemplate(
+        #          template="다음 자료를 바탕으로 질문에 답하세요.\n자료:\n{page_content}\n\n질문: {question}\n답변을 한국어로:", 
+        #          input_variables=["page_content", "question"], )
+
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", "당신은 고성군청 행정업무 Q&A 도우미입니다."),
+            ("human", "질문: {question}\n\n다음 자료를 참고해 한국어로 간결하고 정확하게 답하세요.\n\n{context}")
+        ])
+        
         retriever = vectorstore.as_retriever(search_kwargs={"k":3})
         qa_chain = create_retriever_tool(
                 retriever=retriever,
@@ -75,7 +81,7 @@ def answer_question(query: str):
                 description="고성군청 업무 관련 문서 검색",
                 document_prompt=prompt,
                 )
-        result = qa_chain.invoke({"query": query})
+        result = qa_chain.invoke({"question": query})
         if isinstance(result, dict):
             return result.get("result", "답변을 생성할 수 없습니다.")
         else:
@@ -182,6 +188,7 @@ def process1_f(uploaded_files1):
         st.error(f"❌ 학습 중 오류 발생: {e}")
         st.code(traceback.format_exc(), language="python")
         return None
+
 
 
 
