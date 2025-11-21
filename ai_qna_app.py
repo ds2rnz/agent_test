@@ -4,7 +4,6 @@ from langchain.tools import tool
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_classic.chains import RetrievalQA
-from langchain_classic.chains import retrieval_qa
 from langchain_community.tools import DuckDuckGoSearchResults
 from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
 from langchain_openai import OpenAIEmbeddings
@@ -21,7 +20,7 @@ from langchain_openai import ChatOpenAI
 
 
 llm = ChatOpenAI(
-    model = "gpt-5" 
+    model = "gpt-4.5" 
     )
 
 
@@ -68,7 +67,7 @@ def answer_question(query: str):
                 input_variables=["context", "question"]
                 )
         retriever = vectorstore.as_retriever(search_kwargs={"k":3})
-        qa_chain = retrieval_qa(
+        qa_chain = RetrievalQA.from_chain_type(
                llm=llm,
                chain_type="stuff",
                retriever=retriever,
@@ -182,5 +181,6 @@ def process1_f(uploaded_files1):
         st.error(f"❌ 학습 중 오류 발생: {e}")
         st.code(traceback.format_exc(), language="python")
         return None
+
 
 
