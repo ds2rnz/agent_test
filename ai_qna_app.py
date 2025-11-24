@@ -75,11 +75,11 @@ system_prompt_text = """
 """
 
 llm = init_chat_model(
-    model = "openai:gpt-5",
-    # temperature=0.9, 
+    model = "openai:gpt-4o",
+    temperature=0.9, 
     max_tokens=2000, 
-    # timeout=100,
-    # max_retries=2, 
+    timeout=100,
+    max_retries=2, 
     )
 
 
@@ -253,6 +253,7 @@ def process1_f(uploaded_files1):
         st.error(f"❌ 학습 중 오류 발생: {e}")
         st.code(traceback.format_exc(), language="python")
         return None
+
 
 
 
