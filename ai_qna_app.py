@@ -75,7 +75,7 @@ system_prompt_text = """
 """
 
 llm = init_chat_model(
-    model = "openai:gpt-5.2",
+    model = "openai:gpt-5.5",
     temperature=0.9, 
     max_tokens=2000, 
     timeout=100,
