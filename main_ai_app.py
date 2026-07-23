@@ -116,12 +116,12 @@ def show_main_app():
         # 이미지 수정기
         # st.markdown("### 🎨 이미지 수정기")
         st.markdown("""
-            <h2 style="text-align: center; font-size: 1.5rem; color: #000000;">🎨 Image Editer</h2>
+            <h2 style="text-align: center; font-size: 1.6rem; color: #000000;">🎨 이미지 Editer</h2>
             """, unsafe_allow_html=True)
-        st.caption("Image를 업로드해 수정합니다.")
+        st.caption("이미지를 업로드해 수정합니다.")
 
         edit_uploaded_image = st.file_uploader(
-            "Image(최대3개)",
+            "수정할 이미지(최대3개)",
             type=["png", "jpg", "jpeg", "webp"],
             accept_multiple_files=True,
             key="edit_image_uploader",
@@ -137,12 +137,12 @@ def show_main_app():
             key="edit_image_prompt",
         )
         edit_size = st.selectbox(
-            "수정 Image 크기",
+            "수정 이미지 크기",
             options=["auto", "1024x1024", "1536x1024", "1024x1536"],
             key="edit_image_size",
         )
         edit_button = st.button(
-            "✨ Image 수정",
+            "✨ 이미지 수정",
             key="edit_image_button",
             type="primary",
             use_container_width=True,
