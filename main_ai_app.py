@@ -2,8 +2,9 @@ import streamlit as st
 import os
 from langchain_classic.chains import RetrievalQA
 from langchain_community.vectorstores import FAISS
-from ai_qna_app import process1_f, ai_answer, answer_question
+from ai_qna_app import process1_f, ai_answer, answer_question, generate_image, edit_image
 from config import get_embedding
+from image_app import display_image_errors, display_pending_images, select_image_size, is_image_request
 
 
 
@@ -46,6 +47,14 @@ def show_main_app():
         if st.button("🚪 로그아웃", type="secondary", use_container_width=True):
             st.session_state.logged_in = False
             st.session_state.user_info = None
+            # 다음 로그인 사용자에게 이전 대화/이미지/PDF 상태가 보이지 않도록 초기화
+            for key in (
+                "messages",
+                "vectorstore",
+                "pending_images",
+                "pending_image_errors",
+            ):
+                st.session_state.pop(key, None)
             st.rerun()
         
         st.markdown("---")
@@ -94,21 +103,58 @@ def show_main_app():
             type="primary",
             use_container_width=True
         )
+#        st.markdown("---")
+#        st.markdown("### 📖 :blue[사용방법]")
+#        st.markdown("""
+#            1. PDF 파일(최대 3개만) 업로드 가능
+#            2. "학습시작" 버튼을 클릭하세요
+#            3. 학습한 문서를 바탕으로 사용자 요청에 따라 답변합니다.
+#            """)
         
         st.markdown("---")
-        st.markdown("### 📖 :blue[사용방법]")
+
+        # 이미지 수정기
+        # st.markdown("### 🎨 이미지 수정기")
         st.markdown("""
-            1. PDF 파일을 업로드하세요(최대 3개만)
-            2. "학습시작" 버튼을 클릭하세요
-            3. 학습한 문서를 바탕으로 사용자 요청에 따라 답변합니다.
-            """)
-            
+            <h2 style="text-align: center; font-size: 1.7rem; color: #000000;">🎨 이미지 수정기</h2>
+            """, unsafe_allow_html=True)
+        st.caption("이미지 또는 이미지를 업로드해 수정합니다.")
+
+
+        edit_uploaded_image = st.file_uploader(
+            "수정할 이미지(최대3개)",
+            type=["png", "jpg", "jpeg", "webp"],
+            accept_multiple_files=True,
+            key="edit_image_uploader",
+            )
+
+        if edit_uploaded_image is not None:
+            for index, uploaded_image in enumerate(edit_uploaded_image[:3], 1):
+                st.image(uploaded_image, caption="원본", width=256)
+        
+        edit_prompt = st.text_area(
+            "수정 내용",
+            placeholder="예: 배경을 바다로 바꾸고 하늘에 뭉게구름을 추가해줘",
+            key="edit_image_prompt",
+        )
+        edit_size = st.selectbox(
+            "수정 이미지 크기",
+            options=["auto", "1024x1024", "1536x1024", "1024x1536"],
+            key="edit_image_size",
+        )
+        edit_button = st.button(
+            "✨ 이미지 수정",
+            key="edit_image_button",
+            type="primary",
+            use_container_width=True,
+        )
+
         st.markdown("---")
 
         st.markdown("""
             <div style="text-align: center; padding: 1rem; color: #000000; font-size: 0.9rem;">
                 <p style="margin: 0;">Made by 🔍 총무행정관 정보관리팀</p>
-                <p style="margin: 0.5rem 0 0 0;">v1.0.0 | 2025</p>
+                <p style="margin: 0.5rem 0 0 0;">v1.0.1 | 2026</p>
             </div>
         """, unsafe_allow_html=True)
 
@@ -123,62 +169,186 @@ def show_main_app():
     # 메시지 출력
     for msg in st.session_state.messages:
         role = msg["role"]
-        content = msg["content"]
-        st.chat_message(role).write(content)
+        content = msg.get("content", "")
 
-    # vectorstore 로드
+        with st.chat_message(role):
+            if content:
+                st.write(content)
+
+            if msg.get("image_bytes"):
+                st.image(
+                    msg["image_bytes"],
+                    caption=msg.get("image_prompt", "생성된 이미지"),
+                    # use_container_width=True,
+                    width = 512,
+                )
+
+                st.download_button(
+                    label="📥 이미지 다운로드",
+                    data=msg["image_bytes"],
+                    file_name=msg.get(
+                        "file_name",
+                        "generated_image.png",
+                    ),
+                    mime="image/png",
+                    key=msg.get("download_key"),
+                )
+
+
+    # 세션 상태 초기화
     if "vectorstore" not in st.session_state:
-        st.session_state["vectorstore"] = load_vectorstore(
-            embedding=get_embedding(),
-            persist_directory="C:/faiss_store"
-        )
+        st.session_state["vectorstore"] = None
 
-    # 사용자 입력 처리
-    if prompt := st.chat_input(placeholder="무엇이든 물어보세요?"):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        st.chat_message("user").write(prompt)
-        
+    # PDF 학습 버튼은 채팅 입력 여부와 무관하게 처리
+    if process1:
+        learned_vectorstore = process1_f(uploaded_files1)
+        if learned_vectorstore is not None:
+            st.session_state["vectorstore"] = learned_vectorstore
+
+    # 사이드바의 이미지 수정 요청 처리
+    if edit_button:
+        if edit_uploaded_image is None:
+            st.warning("⚠️ 수정할 이미지를 먼저 업로드해 주세요.")
+        elif not edit_prompt.strip():
+            st.warning("⚠️ 어떻게 수정할지 내용을 입력해 주세요.")
+        else:
+            with st.spinner("🎨 이미지를 수정하는 중입니다..."):
+                edit_result = edit_image(
+                    uploaded_image=edit_uploaded_image,
+                    prompt=edit_prompt,
+                    size=edit_size,
+                    quality="medium",
+                )
+            if st.session_state.get("pending_images"):
+                display_pending_images()
+            else:
+                st.error(edit_result)
+                display_image_errors()
+
+    prompt = st.chat_input(
+        placeholder="무엇이든 물어보세요?"
+    )
+
+    # 화면 최초 진입/재실행 시 prompt는 None이므로 메시지를 만들지 않음
+    if not prompt:
+        return
+
+    st.session_state.messages.append({
+        "role": "user",
+        "content": prompt,
+    })
+
+    st.chat_message("user").write(prompt)
+
+    # 이미지 요청
+    if is_image_request(prompt):
+        with st.spinner("🎨 이미지를 생성하는 중입니다..."):
+            try:
+                image_size = select_image_size(prompt)
+
+                tool_result = generate_image.invoke({
+                    "prompt": prompt,
+                    "size": image_size,
+                    "quality": "medium",
+                })
+
+                if st.session_state.get("pending_images"):
+                    # 이미지 메시지 저장과 화면 출력은 이 함수에서 한 번만 처리
+                    display_pending_images()
+                else:
+                    error_message = str(tool_result)
+
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": error_message,
+                    })
+
+                    st.chat_message("assistant").error(
+                        error_message
+                    )
+
+            except Exception as e:
+                error_message = (
+                    "이미지 생성 중 오류가 발생했습니다: "
+                    f"{type(e).__name__}: {e}"
+                )
+
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": error_message,
+                })
+
+                st.chat_message("assistant").error(
+                    error_message
+                )
+
+    # 이미지 요청이 아닌 일반 질문
+    else:
         vectorstore = st.session_state.get("vectorstore")
 
         if vectorstore is not None:
             with st.spinner("📚 학습된 문서를 검색하는 중..."):
                 answer = answer_question(prompt)
 
-            if answer and "죄송합니다. " in answer or len(answer) < 30:
-                # st.info("💡 학습된 문서에서 관련 내용을 찾지 못했습니다. 일반 AI 모드로 전환합니다.")
-                
+            if (
+                not answer
+                or "죄송합니다." in answer
+                or len(answer) < 30
+            ):
                 with st.spinner("답변 생성 중..."):
-                    try:
-                        response = ai_answer(st.session_state.messages)
-                        ai_response = response['messages'][-1].content
-                        st.toast("일반 AI 모드로 답변합니다....!", icon="🎉")
-                        st.session_state.messages.append({"role": "assistant", "content": ai_response})
-                        st.chat_message("assistant").write(ai_response)
-                    except Exception as e:
-                        error_msg = f"오류가 발생했습니다: {str(e)}"
-                        st.session_state.messages.append({"role": "assistant", "content": error_msg})
-                        st.chat_message("assistant").write(error_msg)
+                    response = ai_answer(
+                        st.session_state.messages
+                    )
+                    ai_response = response["messages"][-1].content
+
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": ai_response,
+                    })
+
+                    st.chat_message("assistant").write(
+                        ai_response
+                    )
             else:
-                st.session_state.messages.append({"role": "assistant", "content": answer})
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": answer,
+                })
+
                 st.chat_message("assistant").write(answer)
+
         else:
+            # 벡터스토어가 없으면 일반 AI 답변
             with st.spinner("답변 생성 중..."):
                 try:
-                    response = ai_answer(st.session_state.messages)
-                    ai_response = response['messages'][-1].content
-                    st.toast("일반 AI 모드로 답변합니다....!", icon="🎉")
-                    st.session_state.messages.append({"role": "assistant", "content": ai_response})
-                    st.chat_message("assistant").write(ai_response)
+                    response = ai_answer(
+                        st.session_state.messages
+                    )
+                    ai_response = response["messages"][-1].content
+
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": ai_response,
+                    })
+
+                    st.chat_message("assistant").write(
+                        ai_response
+                    )
+
                 except Exception as e:
-                    error_msg = f"오류가 발생했습니다: {str(e)}"
-                    st.session_state.messages.append({"role": "assistant", "content": error_msg})
-                    st.chat_message("assistant").write(error_msg)
+                    error_message = (
+                        "답변 생성 중 오류가 발생했습니다: "
+                        f"{type(e).__name__}: {e}"
+                    )
 
-    # 문서 학습 처리
-    if process1:
-        st.session_state["vectorstore"] = process1_f(uploaded_files1)
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": error_message,
+                    })
 
-
+                    st.chat_message("assistant").error(
+                        error_message
+                    )
 
 def load_vectorstore(embedding, persist_directory="C:/faiss_store"):
     
@@ -205,17 +375,6 @@ def load_vectorstore(embedding, persist_directory="C:/faiss_store"):
             return None
     else:
         return None        
-
-
-
-
-
-
-
-
-
-
-
 
 
 

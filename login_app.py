@@ -52,7 +52,7 @@ def show_login_page():
         st.markdown("""
             <div style="text-align: center; margin-top: 3rem; color: #64748b;">
                 <p>Made by 🔍 총무행정관 정보관리팀</p>
-                <p>v1.0.0 | 2025</p>
+                <p>v1.0.1 | 2026</p>
             </div>
         """, unsafe_allow_html=True)
        

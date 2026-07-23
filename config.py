@@ -7,7 +7,9 @@ def get_embedding():
     """Embedding 모델 반환 (캐시됨)"""
     return OpenAIEmbeddings(
         model="text-embedding-3-large", 
-        api_key=st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
-    )
+        # api_key=st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
+        api_key = os.getenv("OPENAI_API_KEY"))       
+    
+
 
 
