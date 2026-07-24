@@ -1,385 +1,386 @@
-import streamlit as st
+import html
 import os
-from langchain_classic.chains import RetrievalQA
+
+import streamlit as st
 from langchain_community.vectorstores import FAISS
-from ai_qna_app import process1_f, ai_answer, answer_question, generate_image, edit_image
-from config import get_embedding
-from image_app import display_image_errors, display_pending_images, select_image_size, is_image_request
+
+from ai_qna_app import (
+    ai_answer,
+    answer_question,
+    edit_image,
+    generate_image,
+    process1_f,
+)
+from image_app import (
+    display_image_errors,
+    display_pending_images,
+    is_image_request,
+    select_image_size,
+)
 
 
+DOCUMENT_TYPES = ["pdf", "xlsx", "xls", "xlsm", "csv", "pptx", "pptm", "ppt"]
+IMAGE_TYPES = ["png", "jpg", "jpeg", "webp"]
 
 
-def show_main_app():
-    """메인 AI 도우미 앱"""
-    
-    # 페이지 설정
-    st.markdown("""
-        <style>
-            .centered-title {
-                text-align: center;
-                font-size: 3rem;
-                color: #1e293b;
-                margin-top: 0px;
-                margin-bottom: 3px;
-            }
-            .ai-text {
-                font-size: 3.5rem;
-                color: #2563eb;
-                margin-left: 10px;
-                margin-right: 10px;
-            }
-        </style> 
-        <h1 style="text-align: center; font-size: 3rem; color: #1e293b;">
-        💬 고성군청 <span class="ai-text">AI</span> 도우미 </h1>
-    """, unsafe_allow_html=True)
+def _short_file_name(file_name: str, limit: int = 31) -> str:
+    safe_name = html.escape(file_name)
+    return safe_name if len(safe_name) <= limit else f"{safe_name[:limit]}…"
 
-    # 사이드바
+
+def _render_file_list(files, label: str):
+    file_rows = "".join(
+        f'<div class="gs-file-item">{index}. {_short_file_name(file.name)}</div>'
+        for index, file in enumerate(files[:3], start=1)
+    )
+    st.markdown(
+        f"""
+        <div class="gs-file-list">
+            <div class="gs-file-count">✓ {len(files)}개 {label} 선택</div>
+            {file_rows}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _logout():
+    st.session_state.logged_in = False
+    st.session_state.user_info = None
+    for key in (
+        "messages",
+        "vectorstore",
+        "pending_images",
+        "pending_image_errors",
+        "uploader1",
+        "edit_image_uploader",
+        "edit_image_prompt",
+    ):
+        st.session_state.pop(key, None)
+    st.rerun()
+
+
+def _render_sidebar():
+    user_info = st.session_state.get("user_info") or {}
+    user_name = html.escape(str(user_info.get("name", "사용자")))
+    user_id = html.escape(str(st.session_state.get("logged_in", "")))
+
     with st.sidebar:
-        # 사용자 정보 표시
-        st.markdown(f"""
-            <div style="background: #e0f2fe; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-                <p style="margin: 0; font-weight: bold; font-size: 1.2rem; color: #0c4a6e;">👤 {st.session_state.user_info['name']}</p>
-                <h3 style="margin: 0.5rem 0 0 0; font-size: 1.2rem; color: #075985;">ID: {st.session_state.logged_in}</h3>
+        st.markdown(
+            f"""
+            <div class="gs-user-card">
+                <div class="gs-user-label">SIGNED IN</div>
+                <div class="gs-user-name">👤 {user_name}님</div>
+                <div class="gs-user-id">새올 ID · {user_id}</div>
             </div>
-        """, unsafe_allow_html=True)
-        
-        # 로그아웃 버튼
-        if st.button("🚪 로그아웃", type="secondary", use_container_width=True):
-            st.session_state.logged_in = False
-            st.session_state.user_info = None
-            # 다음 로그인 사용자에게 이전 대화/이미지/PDF 상태가 보이지 않도록 초기화
-            for key in (
-                "messages",
-                "vectorstore",
-                "pending_images",
-                "pending_image_errors",
-            ):
-                st.session_state.pop(key, None)
-            st.rerun()
-        
-        st.markdown("---")
-        
-        # 문서 학습기
-        st.markdown('<div class="sidebar-box">', unsafe_allow_html=True)
-        
-        st.markdown("""
-            <h2 style="text-align: center; font-size: 1.7rem; color: #000000;">📚 문서 학습기</h2>
-            """, unsafe_allow_html=True)
-
-        st.markdown("""
-            <p class="upload-label">
-                📎 PDF 파일 업로드 
-                <span class="badge">최대 3개</span>
-            </p>
-        """, unsafe_allow_html=True)
-        
-        uploaded_files1 = st.file_uploader(
-            "학습할 PDF 선택",
-            type=['pdf'],
-            accept_multiple_files=True,
-            key="uploader1",
-            label_visibility="collapsed"
+            """,
+            unsafe_allow_html=True,
         )
-        
-        if uploaded_files1:
-            st.markdown("""
-                <div style="background: #f0fdf4; padding: 0.5rem; border-radius: 8px; margin-top: 0.5rem;">
-                    <p style="margin: 0; font-size: 0.85rem; color: #15803d; font-weight: 500;">
-                        ✅ {}개 파일 선택됨
-                    </p>
-                </div>
-            """.format(len(uploaded_files1)), unsafe_allow_html=True)
-            
-            for i, file in enumerate(uploaded_files1[:3], 1):
-                st.markdown(f"""
-                    <div style="font-size: 0.8rem; color: #475569; padding: 0.2rem 0.5rem;">
-                        {i}. {file.name[:30]}{'...' if len(file.name) > 30 else ''}
-                    </div>
-                """, unsafe_allow_html=True)
-        
-        process1 = st.button(
-            "🚀 학습 시작",
-            key="process1",
-            type="primary",
-            use_container_width=True
-        )
-#        st.markdown("---")
-#        st.markdown("### 📖 :blue[사용방법]")
-#        st.markdown("""
-#            1. PDF 파일(최대 3개만) 업로드 가능
-#            2. "학습시작" 버튼을 클릭하세요
-#            3. 학습한 문서를 바탕으로 사용자 요청에 따라 답변합니다.
-#            """)
-        
-        st.markdown("---")
 
-        # 이미지 수정기
-        # st.markdown("### 🎨 이미지 수정기")
-        st.markdown("""
-            <h2 style="text-align: center; font-size: 1.6rem; color: #000000;">🎨 이미지 Editer</h2>
-            """, unsafe_allow_html=True)
-        st.caption("이미지를 업로드해 수정합니다.")
+        if st.button("로그아웃", type="secondary", use_container_width=True):
+            _logout()
 
-        edit_uploaded_image = st.file_uploader(
-            "수정할 이미지(최대3개)",
-            type=["png", "jpg", "jpeg", "webp"],
-            accept_multiple_files=True,
-            key="edit_image_uploader",
+        st.markdown("#### 업무 도구")
+        st.caption("필요한 기능을 열어 바로 사용할 수 있습니다.")
+
+        with st.expander("📚 문서 학습", expanded=True):
+            st.markdown(
+                '<div class="gs-section-note">'
+                "PDF·Excel·PowerPoint 내용을 학습해 문서 기반 답변을 제공합니다."
+                "</div>",
+                unsafe_allow_html=True,
+            )
+            uploaded_files = st.file_uploader(
+                "학습 문서",
+                type=DOCUMENT_TYPES,
+                accept_multiple_files=True,
+                key="uploader1",
+                help="한 번에 최대 3개 파일을 선택할 수 있습니다.",
             )
 
-        if edit_uploaded_image is not None:
-            for index, uploaded_image in enumerate(edit_uploaded_image[:3], 1):
-                st.image(uploaded_image, caption="원본", width=256)
-        
-        edit_prompt = st.text_area(
-            "수정 내용",
-            placeholder="예: 배경을 바다로 바꾸고 하늘에 뭉게구름을 추가해줘",
-            key="edit_image_prompt",
-        )
-        edit_size = st.selectbox(
-            "수정 이미지 크기",
-            options=["auto", "1024x1024", "1536x1024", "1024x1536"],
-            key="edit_image_size",
-        )
-        edit_button = st.button(
-            "✨ 이미지 수정",
-            key="edit_image_button",
-            type="primary",
-            use_container_width=True,
-        )
+            if uploaded_files:
+                _render_file_list(uploaded_files, "문서")
+                if len(uploaded_files) > 3:
+                    st.warning("문서는 최대 3개까지 선택해 주세요.")
 
-        st.markdown("---")
+            process_button = st.button(
+                "문서 학습 시작",
+                key="process1",
+                type="primary",
+                use_container_width=True,
+                disabled=not uploaded_files or len(uploaded_files) > 3,
+            )
+            st.caption("구형 .ppt 파일은 .pptx로 변환 후 업로드해 주세요.")
 
-        st.markdown("""
-            <div style="text-align: center; padding: 1rem; color: #000000; font-size: 0.9rem;">
-                <p style="margin: 0;">Made by 🔍 총무행정관 정보관리팀</p>
-                <p style="margin: 0.5rem 0 0 0;">v1.0.1 | 2026</p>
+        with st.expander("🎨 이미지 편집", expanded=False):
+            st.markdown(
+                '<div class="gs-section-note">'
+                "최대 3장의 이미지를 참고해 배경·색상·구성을 수정합니다."
+                "</div>",
+                unsafe_allow_html=True,
+            )
+            edit_images = st.file_uploader(
+                "원본 이미지",
+                type=IMAGE_TYPES,
+                accept_multiple_files=True,
+                key="edit_image_uploader",
+                help="PNG, JPG, JPEG, WEBP · 최대 3개",
+            )
+
+            if edit_images:
+                _render_file_list(edit_images, "이미지")
+                if len(edit_images) <= 3:
+                    preview_columns = st.columns(min(len(edit_images), 3))
+                    for index, uploaded_image in enumerate(edit_images[:3]):
+                        with preview_columns[index]:
+                            st.image(uploaded_image, use_container_width=True)
+                else:
+                    st.warning("이미지는 최대 3개까지 선택해 주세요.")
+
+            edit_prompt = st.text_area(
+                "수정 요청",
+                placeholder="예: 배경을 고성 해변으로 바꾸고 맑은 하늘을 추가해 주세요.",
+                key="edit_image_prompt",
+                height=100,
+            )
+            edit_size = st.selectbox(
+                "결과 이미지 비율",
+                options=["auto", "1024x1024", "1536x1024", "1024x1536"],
+                format_func=lambda value: {
+                    "auto": "자동",
+                    "1024x1024": "정사각형 · 1024 × 1024",
+                    "1536x1024": "가로형 · 1536 × 1024",
+                    "1024x1536": "세로형 · 1024 × 1536",
+                }[value],
+                key="edit_image_size",
+            )
+            edit_button = st.button(
+                "이미지 편집 시작",
+                key="edit_image_button",
+                type="primary",
+                use_container_width=True,
+                disabled=(
+                    not edit_images
+                    or len(edit_images) > 3
+                    or not edit_prompt.strip()
+                ),
+            )
+
+        with st.expander("이용 안내"):
+            st.markdown(
+                """
+                1. 문서를 학습하면 업로드 자료를 우선 검색합니다.
+                2. 일반 질문은 AI가 바로 답변합니다.
+                3. “고성 관광 포스터를 만들어줘”처럼 입력하면 이미지를 생성합니다.
+                4. 생성·편집한 이미지는 PNG로 내려받을 수 있습니다.
+                """
+            )
+
+        st.markdown(
+            """
+            <div class="gs-footer">
+                총무행정관 정보관리팀<br>
+                Goseong County AI Assistant · v1.1.0
             </div>
-        """, unsafe_allow_html=True)
+            """,
+            unsafe_allow_html=True,
+        )
 
-    # 메시지 초기화
-    if "messages" not in st.session_state:
-        usr_name = f"무엇을 도와 드릴까요?  {str(st.session_state.user_info['name'])}님" 
-        st.session_state.messages = [
-            {"role": "system", "content": "저는 고성군청 직원을 위해 최선을 다하는 인공지능 도우미입니다."},
-            {"role": "assistant", "content": usr_name}
-        ]
+    return uploaded_files, process_button, edit_images, edit_prompt, edit_size, edit_button
 
-    # 메시지 출력
-    for msg in st.session_state.messages:
-        role = msg["role"]
-        content = msg.get("content", "")
+
+def _render_header():
+    st.markdown(
+        """
+        <div class="gs-hero">
+            <div class="gs-eyebrow">
+                <span class="gs-dot"></span>
+                GOSEONG COUNTY · AI WORKSPACE
+            </div>
+            <h1>고성군청 <span>AI 도우미</span></h1>
+            <p>
+                질문에 답하고, 검색하고, 필요한 이미지를 만들고, 도움되는
+                고성군청 직원 전용 AI 업무 공간입니다.
+            </p>
+            <div class="gs-chip-row">
+                <span class="gs-chip">📚 문서 학습</span>
+                <span class="gs-chip">🔎 정보 검색</span>
+                <span class="gs-chip">🎨 이미지 생성</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_messages():
+    for message in st.session_state.messages:
+        role = message.get("role", "assistant")
+        if role == "system":
+            continue
 
         with st.chat_message(role):
+            content = message.get("content")
             if content:
                 st.write(content)
 
-            if msg.get("image_bytes"):
+            if message.get("image_bytes"):
                 st.image(
-                    msg["image_bytes"],
-                    caption=msg.get("image_prompt", "생성된 이미지"),
-                    # use_container_width=True,
-                    width = 512,
+                    message["image_bytes"],
+                    caption=message.get("image_prompt", "생성된 이미지"),
+                    width=512,
                 )
-
                 st.download_button(
-                    label="📥 이미지 다운로드",
-                    data=msg["image_bytes"],
-                    file_name=msg.get(
-                        "file_name",
-                        "generated_image.png",
-                    ),
+                    "이미지 다운로드",
+                    data=message["image_bytes"],
+                    file_name=message.get("file_name", "generated_image.png"),
                     mime="image/png",
-                    key=msg.get("download_key"),
+                    key=message.get("download_key"),
                 )
 
 
-    # 세션 상태 초기화
+def _append_assistant_message(content: str, is_error: bool = False):
+    st.session_state.messages.append({"role": "assistant", "content": content})
+    message_box = st.chat_message("assistant")
+    if is_error:
+        message_box.error(content)
+    else:
+        message_box.write(content)
+
+
+def _answer_general_question():
+    response = ai_answer(st.session_state.messages)
+    ai_response = response["messages"][-1].content
+    _append_assistant_message(ai_response)
+
+
+def show_main_app():
+    """고성군청 AI 도우미 메인 화면을 표시합니다."""
     if "vectorstore" not in st.session_state:
-        st.session_state["vectorstore"] = None
+        st.session_state.vectorstore = None
 
-    # PDF 학습 버튼은 채팅 입력 여부와 무관하게 처리
-    if process1:
-        learned_vectorstore = process1_f(uploaded_files1)
+    if "messages" not in st.session_state:
+        user_name = (st.session_state.get("user_info") or {}).get("name", "사용자")
+        st.session_state.messages = [
+            {
+                "role": "system",
+                "content": "저는 고성군청 직원을 위해 최선을 다하는 인공지능 도우미입니다.",
+            },
+            {
+                "role": "assistant",
+                "content": f"안녕하세요, {user_name}님. 오늘 어떤 업무를 도와드릴까요?",
+            },
+        ]
+
+    (
+        uploaded_files,
+        process_button,
+        edit_images,
+        edit_prompt,
+        edit_size,
+        edit_button,
+    ) = _render_sidebar()
+
+    _render_header()
+    _render_messages()
+
+    if process_button:
+        learned_vectorstore = process1_f(uploaded_files)
         if learned_vectorstore is not None:
-            st.session_state["vectorstore"] = learned_vectorstore
+            st.session_state.vectorstore = learned_vectorstore
 
-    # 사이드바의 이미지 수정 요청 처리
     if edit_button:
-        if edit_uploaded_image is None:
-            st.warning("⚠️ 수정할 이미지를 먼저 업로드해 주세요.")
-        elif not edit_prompt.strip():
-            st.warning("⚠️ 어떻게 수정할지 내용을 입력해 주세요.")
+        with st.spinner("이미지를 편집하고 있습니다..."):
+            edit_result = edit_image(
+                uploaded_image=edit_images,
+                prompt=edit_prompt,
+                size=edit_size,
+                quality="medium",
+            )
+        if st.session_state.get("pending_images"):
+            display_pending_images()
         else:
-            with st.spinner("🎨 이미지를 수정하는 중입니다..."):
-                edit_result = edit_image(
-                    uploaded_image=edit_uploaded_image,
-                    prompt=edit_prompt,
-                    size=edit_size,
-                    quality="medium",
-                )
-            if st.session_state.get("pending_images"):
-                display_pending_images()
-            else:
-                st.error(edit_result)
-                display_image_errors()
+            st.error(edit_result)
+            display_image_errors()
 
     prompt = st.chat_input(
-        placeholder="무엇이든 물어보세요?"
+        "질문을 입력하거나 만들고 싶은 이미지를 설명해 주세요."
     )
-
-    # 화면 최초 진입/재실행 시 prompt는 None이므로 메시지를 만들지 않음
     if not prompt:
         return
 
-    st.session_state.messages.append({
-        "role": "user",
-        "content": prompt,
-    })
-
+    st.session_state.messages.append({"role": "user", "content": prompt})
     st.chat_message("user").write(prompt)
 
-    # 이미지 요청
     if is_image_request(prompt):
-        with st.spinner("🎨 이미지를 생성하는 중입니다..."):
+        with st.spinner("요청하신 이미지를 생성하고 있습니다..."):
             try:
-                image_size = select_image_size(prompt)
-
-                tool_result = generate_image.invoke({
-                    "prompt": prompt,
-                    "size": image_size,
-                    "quality": "medium",
-                })
-
+                tool_result = generate_image.invoke(
+                    {
+                        "prompt": prompt,
+                        "size": select_image_size(prompt),
+                        "quality": "medium",
+                    }
+                )
                 if st.session_state.get("pending_images"):
-                    # 이미지 메시지 저장과 화면 출력은 이 함수에서 한 번만 처리
                     display_pending_images()
                 else:
-                    error_message = str(tool_result)
-
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": error_message,
-                    })
-
-                    st.chat_message("assistant").error(
-                        error_message
-                    )
-
-            except Exception as e:
-                error_message = (
-                    "이미지 생성 중 오류가 발생했습니다: "
-                    f"{type(e).__name__}: {e}"
+                    _append_assistant_message(str(tool_result), is_error=True)
+            except Exception as error:
+                _append_assistant_message(
+                    f"이미지 생성 중 오류가 발생했습니다: "
+                    f"{type(error).__name__}: {error}",
+                    is_error=True,
                 )
+        return
 
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": error_message,
-                })
+    vectorstore = st.session_state.get("vectorstore")
+    if vectorstore is not None:
+        with st.spinner("학습된 문서에서 관련 내용을 찾고 있습니다..."):
+            answer = answer_question(prompt)
 
-                st.chat_message("assistant").error(
-                    error_message
-                )
-
-    # 이미지 요청이 아닌 일반 질문
-    else:
-        vectorstore = st.session_state.get("vectorstore")
-
-        if vectorstore is not None:
-            with st.spinner("📚 학습된 문서를 검색하는 중..."):
-                answer = answer_question(prompt)
-
-            if (
-                not answer
-                or "죄송합니다." in answer
-                or len(answer) < 30
-            ):
-                with st.spinner("답변 생성 중..."):
-                    response = ai_answer(
-                        st.session_state.messages
-                    )
-                    ai_response = response["messages"][-1].content
-
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": ai_response,
-                    })
-
-                    st.chat_message("assistant").write(
-                        ai_response
-                    )
-            else:
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": answer,
-                })
-
-                st.chat_message("assistant").write(answer)
-
-        else:
-            # 벡터스토어가 없으면 일반 AI 답변
-            with st.spinner("답변 생성 중..."):
+        if not answer or "죄송합니다." in answer or len(answer) < 30:
+            with st.spinner("답변을 작성하고 있습니다..."):
                 try:
-                    response = ai_answer(
-                        st.session_state.messages
+                    _answer_general_question()
+                except Exception as error:
+                    _append_assistant_message(
+                        f"답변 생성 중 오류가 발생했습니다: "
+                        f"{type(error).__name__}: {error}",
+                        is_error=True,
                     )
-                    ai_response = response["messages"][-1].content
+        else:
+            _append_assistant_message(answer)
+    else:
+        with st.spinner("답변을 작성하고 있습니다..."):
+            try:
+                _answer_general_question()
+            except Exception as error:
+                _append_assistant_message(
+                    f"답변 생성 중 오류가 발생했습니다: "
+                    f"{type(error).__name__}: {error}",
+                    is_error=True,
+                )
 
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": ai_response,
-                    })
-
-                    st.chat_message("assistant").write(
-                        ai_response
-                    )
-
-                except Exception as e:
-                    error_message = (
-                        "답변 생성 중 오류가 발생했습니다: "
-                        f"{type(e).__name__}: {e}"
-                    )
-
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": error_message,
-                    })
-
-                    st.chat_message("assistant").error(
-                        error_message
-                    )
 
 def load_vectorstore(embedding, persist_directory="C:/faiss_store"):
-    
-    # 저장 디렉토리가 존재하는지 확인
+    """저장된 FAISS 학습 데이터를 불러옵니다."""
     if not os.path.isdir(persist_directory):
         return None
-        
+
     index_file = os.path.join(persist_directory, "index.faiss")
     pkl_file = os.path.join(persist_directory, "index.pkl")
-    
+    if not (os.path.exists(index_file) and os.path.exists(pkl_file)):
+        return None
 
-    if os.path.exists(index_file) and os.path.exists(pkl_file):
-        try:
-            st.spinner("📂 기존 학습한 자료를 불러오는 중...")
-            vectorstore = FAISS.load_local(
-                persist_directory, 
-                embedding,
-                allow_dangerous_deserialization=True
-            )
-            st.toast("기존 학습 데이터를 사용합니다!", icon="📚")
-            return vectorstore
-        except Exception as e:
-            st.warning(f"⚠️ 기존 파일 로드 실패: {e}")
-            return None
-    else:
-        return None        
-
-
-
-
-
-
-
-
-
+    try:
+        vectorstore = FAISS.load_local(
+            persist_directory,
+            embedding,
+            allow_dangerous_deserialization=True,
+        )
+        st.toast("기존 학습 데이터를 불러왔습니다.", icon="📚")
+        return vectorstore
+    except Exception as error:
+        st.warning(f"기존 학습 데이터 로드 실패: {error}")
+        return None
