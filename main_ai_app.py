@@ -83,7 +83,7 @@ def _render_sidebar():
         st.markdown("#### 업무 도구")
         st.caption("필요한 기능을 열어 바로 사용할 수 있습니다.")
 
-        with st.expander("📚 문서 학습", expanded=True):
+        with st.expander("📚 문서 학습", expanded=False):
             st.markdown(
                 '<div class="gs-section-note">'
                 "PDF·Excel·PowerPoint 내용을 학습해 문서 기반 답변을 제공합니다."
