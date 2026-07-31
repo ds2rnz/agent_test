@@ -65,6 +65,39 @@ def is_image_request(prompt: str | None) -> bool:
     )
 
 
+def is_image_edit_request(prompt: str | None) -> bool:
+    """첨부 이미지에 대한 요청이 편집 지시인지 판별합니다."""
+    if not isinstance(prompt, str) or not prompt.strip():
+        return False
+
+    normalized_prompt = prompt.strip().lower()
+    edit_words = (
+        "수정",
+        "편집",
+        "바꿔",
+        "변경",
+        "교체",
+        "지워",
+        "제거",
+        "삭제",
+        "추가",
+        "넣어",
+        "합성",
+        "보정",
+        "밝게",
+        "어둡게",
+        "배경",
+        "색상",
+        "색깔",
+        "스타일",
+        "변환",
+        "만들어",
+        "생성",
+        "제작",
+    )
+    return any(word in normalized_prompt for word in edit_words)
+
+
 def select_image_size(prompt: str | None) -> str:
     """문장에 포함된 비율 표현으로 이미지 크기를 선택합니다."""
     if not isinstance(prompt, str):
