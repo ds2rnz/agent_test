@@ -30,9 +30,8 @@ def show_login_page():
             </p>
             <div class="gs-chip-row">
                 <span class="gs-chip">문서 기반 답변</span>
-                <span class="gs-chip">정보 검색</span>
+                <span class="gs-chip">실시간 정보 검색</span>
                 <span class="gs-chip">이미지 생성·편집</span>
-                <span class="gs-chip">PDF 파일 변환(DOCX, TXT)</span>
             </div>
         </div>
         """,
