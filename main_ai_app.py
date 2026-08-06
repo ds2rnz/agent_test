@@ -81,8 +81,8 @@ def _render_sidebar():
         if st.button("로그아웃", type="secondary", use_container_width=True):
             _logout()
 
-        st.markdown("#### 업무 도구")
-        st.caption("사이드 메뉴 또는 대화창의 + 버튼을 이용할 수 있습니다.")
+        st.subheader("🏛️ 업무 도구")
+        st.caption("사이드 메뉴 또는 대화창의 📎첨부버튼을 이용할 수 있습니다.")
 
         with st.expander("📚 문서 학습", expanded=False):
             st.markdown(
@@ -356,7 +356,7 @@ def show_main_app():
             display_image_errors()
 
     submission = st.chat_input(
-        "질문을 입력하거나 + 버튼으로 문서·이미지를 첨부해 주세요.",
+        "질문을 입력하거나 📎첨부버튼으로 문서·이미지를 첨부해 주세요.",
         accept_file="multiple",
         file_type=DOCUMENT_TYPES + IMAGE_TYPES,
         max_chars=8000,
