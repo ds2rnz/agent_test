@@ -580,7 +580,8 @@ system_prompt_text = """
 """
 
 llm = init_chat_model(
-    model = "openai:gpt-5.6-sol")
+#   model = "openai:gpt-5.6-sol")
+    model = "openai:gpt-5.5")
 
 
 embedding = OpenAIEmbeddings(
