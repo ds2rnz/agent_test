@@ -1,14 +1,12 @@
 from pathlib import Path
-
 import streamlit as st
 from dotenv import load_dotenv
-
-BASE_DIR = Path(__file__).resolve().parent
-load_dotenv(BASE_DIR / ".env")
-
 from config import apply_global_styles
 from login_app import show_login_page
 from main_ai_app import show_main_app
+
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
 
 st.set_page_config(
     page_title="고성군청 AI 도우미",

@@ -1,5 +1,7 @@
 import html
 import os
+import re
+import uuid
 
 import streamlit as st
 from langchain_community.vectorstores import FAISS
@@ -18,10 +20,16 @@ from image_app import (
     is_image_request,
     select_image_size,
 )
+from pdf_converter import PdfConversionError, convert_pdf
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 DOCUMENT_TYPES = ["pdf", "xlsx", "xls", "xlsm", "csv", "pptx", "pptm", "ppt"]
 IMAGE_TYPES = ["png", "jpg", "jpeg", "webp"]
+CHAT_FILE_TYPES = DOCUMENT_TYPES + IMAGE_TYPES
 
 
 def _short_file_name(file_name: str, limit: int = 31) -> str:
@@ -167,14 +175,99 @@ def _render_sidebar():
                 ),
             )
 
+        with st.expander("📄 PDF 파일 변환", expanded=False):
+            st.markdown(
+                '<div class="gs-section-note">'
+                "PDF의 텍스트를 추출해 DOCX와 TXT 파일로 변환합니다."
+                "</div>",
+                unsafe_allow_html=True,
+            )
+            conversion_files = st.file_uploader(
+                "변환할 PDF",
+                type=["pdf"],
+                accept_multiple_files=True,
+                key="pdf_converter_uploader",
+                help="한 번에 최대 3개 · 파일당 50MB 이하",
+            )
+            if conversion_files:
+                _render_file_list(conversion_files, "PDF")
+                if len(conversion_files) > 3:
+                    st.warning("PDF는 최대 3개까지 선택해 주세요.")
+
+            conversion_button = st.button(
+                "DOCX·TXT 변환",
+                key="pdf_conversion_button",
+                type="primary",
+                use_container_width=True,
+                disabled=(
+                    not conversion_files
+                    or len(conversion_files) > 3
+                ),
+            )
+
+            if conversion_button:
+                results = []
+                with st.spinner("PDF를 변환하고 있습니다..."):
+                    for uploaded_pdf in conversion_files:
+                        try:
+                            results.append(
+                                convert_pdf(
+                                    uploaded_pdf.getvalue(),
+                                    uploaded_pdf.name,
+                                )
+                            )
+                        except PdfConversionError as error:
+                            st.error(f"{uploaded_pdf.name}: {error}")
+                        except Exception:
+                            logger.exception("PDF 변환 중 예기치 않은 오류")
+                            st.error(
+                                f"{uploaded_pdf.name}: 변환 중 오류가 발생했습니다."
+                            )
+                st.session_state.pdf_conversion_results = results
+
+            for index, result in enumerate(
+                st.session_state.get("pdf_conversion_results", [])
+            ):
+                st.success(
+                    f"{result.source_name} · {result.page_count}페이지 변환 완료"
+                )
+                if result.text_page_count < result.page_count:
+                    st.warning(
+                        "일부 페이지에서 텍스트를 추출하지 못했습니다. "
+                        "스캔된 페이지는 OCR이 필요할 수 있습니다."
+                    )
+                download_columns = st.columns(2)
+                with download_columns[0]:
+                    st.download_button(
+                        "DOCX 다운로드",
+                        data=result.docx_bytes,
+                        file_name=result.docx_name,
+                        mime=(
+                            "application/vnd.openxmlformats-officedocument."
+                            "wordprocessingml.document"
+                        ),
+                        key=f"pdf_docx_download_{index}_{result.docx_name}",
+                        use_container_width=True,
+                    )
+                with download_columns[1]:
+                    st.download_button(
+                        "TXT 다운로드",
+                        data=result.txt_bytes,
+                        file_name=result.txt_name,
+                        mime="text/plain; charset=utf-8",
+                        key=f"pdf_txt_download_{index}_{result.txt_name}",
+                        use_container_width=True,
+                    )
+
         with st.expander("이용 안내"):
             st.markdown(
                 """
-                1. 사이드 메뉴나 대화창의 + 버튼으로 문서를 학습할 수 있습니다.
+                1. 사이드 메뉴나 대화창의 +👤첨부버튼으로 문서를 학습할 수 있습니다.
                 2. 문서와 질문을 함께 보내면 학습 직후 답변합니다.
                 3. 사이드 메뉴나 대화창에서 이미지를 첨부하고 수정할 수 있습니다.
-                4. 파일 없이 만들 이미지를 설명하면 새 이미지를 생성합니다.
+                4. 파일 없이 만들 이미지를 설명하면 새 이미지를 생성합니다.(이미지는 PNG)
                 5. 문서와 이미지는 종류별로 최대 3개까지 처리합니다.
+                6. PDF 파일 변환에서 DOCX와 TXT를 함께 내려받을 수 있습니다.
                 """
             )
 
@@ -208,6 +301,7 @@ def _render_header():
                 <span class="gs-chip">🔎 정보 검색</span>
                 <span class="gs-chip">📚 문서 학습</span>
                 <span class="gs-chip">🎨 이미지 생성·편집</span>
+                <span class="gs-chip">📄 PDF 파일 변환</span>
             </div>
         </div>
         """,
@@ -240,6 +334,10 @@ def _render_messages():
                     key=message.get("download_key"),
                 )
 
+            conversion = message.get("pdf_conversion")
+            if conversion:
+                _render_chat_conversion_downloads(conversion)
+
 
 def _append_assistant_message(content: str, is_error: bool = False):
     st.session_state.messages.append({"role": "assistant", "content": content})
@@ -250,10 +348,92 @@ def _append_assistant_message(content: str, is_error: bool = False):
         message_box.write(content)
 
 
-def _answer_general_question():
-    response = ai_answer(st.session_state.messages)
-    ai_response = response["messages"][-1].content
-    _append_assistant_message(ai_response)
+def _requested_conversion_formats(prompt: str) -> set[str]:
+    """PDF 변환 요청이면 필요한 출력 형식을 반환합니다."""
+    normalized = re.sub(r"\s+", "", (prompt or "").lower())
+    conversion_words = ("변환", "바꿔", "바꾸", "만들어", "추출")
+    if not any(word in normalized for word in conversion_words):
+        return set()
+
+    formats = set()
+    if "docx" in normalized or "워드" in normalized or "word" in normalized:
+        formats.add("docx")
+    if "txt" in normalized or "텍스트" in normalized or "text" in normalized:
+        formats.add("txt")
+    return formats
+
+
+def _render_chat_conversion_downloads(conversion: dict) -> None:
+    """채팅 메시지 안에 PDF 변환 결과 다운로드 버튼을 표시합니다."""
+    formats = set(conversion.get("formats", []))
+    columns = st.columns(len(formats)) if len(formats) > 1 else [st.container()]
+    column_index = 0
+
+    if "docx" in formats:
+        with columns[column_index]:
+            st.download_button(
+                "DOCX 다운로드",
+                data=conversion["docx_bytes"],
+                file_name=conversion["docx_name"],
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                key=f"chat_docx_{conversion['id']}",
+                use_container_width=False,
+            )
+        column_index += 1
+
+    if "txt" in formats:
+        with columns[column_index]:
+            st.download_button(
+                "TXT 다운로드",
+                data=conversion["txt_bytes"],
+                file_name=conversion["txt_name"],
+                mime="text/plain; charset=utf-8",
+                key=f"chat_txt_{conversion['id']}",
+                use_container_width=False,
+            )
+
+
+def _convert_chat_pdfs(pdf_files, formats: set[str]) -> None:
+    """대화창에 첨부된 PDF를 변환하고 결과를 채팅 기록에 보관합니다."""
+    with st.spinner("첨부한 PDF를 변환하고 있습니다..."):
+        for uploaded_pdf in pdf_files:
+            try:
+                result = convert_pdf(uploaded_pdf.getvalue(), uploaded_pdf.name)
+                format_label = "·".join(name.upper() for name in ("docx", "txt") if name in formats)
+                warning = ""
+                if result.text_page_count < result.page_count:
+                    warning = (
+                        "\n\n⚠️ 일부 페이지에서 텍스트를 추출하지 못했습니다. "
+                        "스캔 페이지는 OCR이 필요할 수 있습니다."
+                    )
+                message = {
+                    "role": "assistant",
+                    "content": (
+                        f"{result.source_name}을(를) {format_label} 형식으로 변환했습니다. "
+                        f"({result.page_count}페이지){warning}"
+                    ),
+                    "pdf_conversion": {
+                        "id": uuid.uuid4().hex,
+                        "formats": sorted(formats),
+                        "docx_name": result.docx_name,
+                        "txt_name": result.txt_name,
+                        "docx_bytes": result.docx_bytes,
+                        "txt_bytes": result.txt_bytes,
+                    },
+                }
+                st.session_state.messages.append(message)
+                with st.chat_message("assistant"):
+                    st.write(message["content"])
+                    _render_chat_conversion_downloads(message["pdf_conversion"])
+            except PdfConversionError as error:
+                _append_assistant_message(f"{uploaded_pdf.name}: {error}", is_error=True)
+            except Exception:
+                logger.exception("대화창 PDF 변환 중 예기치 않은 오류")
+                _append_assistant_message(
+                    f"{uploaded_pdf.name}: 변환 중 오류가 발생했습니다.",
+                    is_error=True,
+                )
+
 
 
 def _file_extension(uploaded_file) -> str:
@@ -390,6 +570,18 @@ def show_main_app():
         return
 
     if documents:
+        requested_formats = _requested_conversion_formats(prompt)
+        if requested_formats:
+            non_pdf_files = [file for file in documents if _file_extension(file) != "pdf"]
+            if non_pdf_files:
+                names = ", ".join(file.name for file in non_pdf_files)
+                _append_assistant_message(
+                    f"DOCX/TXT 변환은 PDF만 지원합니다: {names}", is_error=True
+                )
+                return
+            _convert_chat_pdfs(documents, requested_formats)
+            return
+
         learned_vectorstore = process1_f(documents)
         if learned_vectorstore is None:
             _append_assistant_message("첨부 문서를 학습하지 못했습니다.", is_error=True)
@@ -497,6 +689,14 @@ def load_vectorstore(embedding, persist_directory="C:/faiss_store"):
         return None
 
 
+def _answer_general_question():
+    """AI 답변을 전달하고 구조화된 응답에서 텍스트를 추출합니다.  gpt-5.5사용용 함수""" 
+    response = ai_answer(st.session_state.messages)
+    ai_response = response["messages"][-1].content
+    _append_assistant_message(ai_response)
+
+
+
 # def _extract_ai_text(message) -> str:
 #     """LangChain의 문자열·구조화 응답에서 최종 텍스트를 추출합니다.  gpt-5.6 사용용 함수"""
 #     content = getattr(message, "content", "")
@@ -536,5 +736,3 @@ def load_vectorstore(embedding, persist_directory="C:/faiss_store"):
 #         ai_response = "답변 내용이 반환되지 않았습니다."
 
 #     _append_assistant_message(ai_response)
-
-

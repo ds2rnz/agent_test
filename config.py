@@ -1,12 +1,9 @@
 import os
-
 import streamlit as st
 from dotenv import load_dotenv
 from langchain_openai import OpenAIEmbeddings
 
-
 load_dotenv()
-
 
 def apply_global_styles():
     """앱 전체에 공통으로 사용하는 고성군청 UI 테마를 적용합니다."""

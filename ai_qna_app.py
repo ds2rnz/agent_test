@@ -580,8 +580,15 @@ system_prompt_text = """
 """
 
 llm = init_chat_model(
-#   model = "openai:gpt-5.6-sol")
     model = "openai:gpt-5.5")
+
+# gpt-5.6사용시 llm
+# llm = ChatOpenAI(
+#     model="gpt-5.6",
+#     api_key=OPENAI_API_KEY,
+#     use_responses_api=True,
+#     reasoning_effort="medium",
+# )
 
 
 embedding = OpenAIEmbeddings(
